@@ -67,6 +67,7 @@
     <span id="asgnChips" style="display:inline-flex;gap:6px;flex-wrap:wrap;"></span>
     <span class="spacer"></span>
     <span id="catChips" style="display:inline-flex;gap:6px;flex-wrap:wrap;"></span>
+    <button class="btn" id="logoutBtn" style="font-size:11px;">ログアウト</button>
   </div>
   <div class="kpis" id="kpis"></div>
   <div class="section"><h2>直近フォーカス <span class="count">（数時間以内・本日中 / チェックで完了）</span></h2><div id="focus"></div></div>
@@ -80,13 +81,23 @@
   </div>
 </div>
 
+<div class="setup" id="login" style="display:none;max-width:380px;">
+  <h2>ログイン</h2>
+  <p style="font-size:12px;color:#6b7280;">チーム・タスクガント（WP課）</p>
+  <div class="field"><label>メールアドレス</label><input id="loginEmail" type="email" autocomplete="username"></div>
+  <div class="field"><label>パスワード</label><input id="loginPw" type="password" autocomplete="current-password"></div>
+  <button class="btn primary" id="loginBtn" style="width:100%;">ログイン</button>
+  <p id="loginErr" style="color:#b91c1c;font-size:12px;margin-top:8px;"></p>
+  <p style="font-size:11px;color:#9ca3af;margin-top:8px;">アカウントは管理者（原）が発行します。</p>
+</div>
+
 <div class="setup" id="setup" style="display:none;">
   <h2>初期設定：Firebase（無料）に接続してください</h2>
   <p style="font-size:13px;color:#4b5563;">このアプリは全員でリアルタイム共有するために、無料のFirebase(Firestore)を使います。下記を一度だけ設定すれば、以降は誰でもこのページを開くだけで共同編集できます。</p>
   <ol style="font-size:13px;">
     <li><a href="https://console.firebase.google.com/" target="_blank">Firebase Console</a> で無料プロジェクトを作成。</li>
     <li>「Firestore Database」を作成（本番/テストどちらでも可。まずはテストモードで開始が簡単）。</li>
-    <li>「Authentication」→ Sign-in method で「匿名(Anonymous)」を有効化。</li>
+    <li>「Authentication」→ Sign-in method で「メール/パスワード」を有効化し、「Users」タブでメンバー分のアカウント（メール＋パスワード）を追加。</li>
     <li>プロジェクト設定 → 「マイアプリ」でWebアプリを追加し、表示される <code>firebaseConfig</code> をコピー。</li>
     <li>この <code>app.html</code> の先頭 <code>FIREBASE_CONFIG</code> に貼り付けて保存 → GitHub等に再アップロード。</li>
   </ol>
@@ -123,16 +134,21 @@ service cloud.firestore {
 <script type="module">
 /* ====== ここにFirebaseの設定を貼り付け ====== */
 const FIREBASE_CONFIG = {
-  apiKey: "PASTE_HERE",
-  authDomain: "PASTE_HERE",
-  projectId: "PASTE_HERE",
-  appId: "PASTE_HERE"
+  apiKey: "AIzaSyCLoimcnuQSLN2sq8ixtYjbUsTVe-Aehfg",
+  authDomain: "team-gantt-99175.firebaseapp.com",
+  projectId: "team-gantt-99175",
+  storageBucket: "team-gantt-99175.firebasestorage.app",
+  messagingSenderId: "7139800824",
+  appId: "1:7139800824:web:c348c331195670c8e26d0d"
 };
 /* ============================================ */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+/* 方式A: 進捗管理表の公開CSV URL */
+const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSQkFfb9XTQkRHcPNIP6kykuy-c-T6mmtVZIQZGw31RhaIFbbCSTxWYKbnsXY06bFjQ7wArVE0e4SpI/pub?gid=0&single=true&output=csv";
 
 const CATS=["濱田さん案件","デザイン実務","部下2名への指示","広告運用・外部連携","今月度のミッション"];
 const CATCOLOR={"濱田さん案件":"#ef4444","デザイン実務":"#3b82f6","部下2名への指示":"#8b5cf6","広告運用・外部連携":"#f59e0b","今月度のミッション":"#22c55e"};
@@ -144,7 +160,7 @@ const MEMBERS=["原裕也","秋田夕佳","寺澤花帆"]; const SELF="原裕也
 const HOLIDAYS={"2026-07-20":"海の日","2026-08-11":"山の日","2026-09-21":"敬老の日","2026-09-22":"国民の休日","2026-09-23":"秋分の日","2026-10-12":"スポーツの日","2026-11-03":"文化の日","2026-11-23":"勤労感謝の日","2027-01-01":"元日","2027-01-11":"成人の日","2027-02-11":"建国記念の日","2027-02-23":"天皇誕生日","2027-03-21":"春分の日","2027-03-22":"振替休日","2027-04-29":"昭和の日","2027-05-03":"憲法記念日","2027-05-04":"みどりの日","2027-05-05":"こどもの日"};
 function holName(d){return HOLIDAYS[ymd(d)]||null;}
 
-let TASKS=[]; let FILTER={hama:false,hideDone:true,asgn:"all",cats:new Set(CATS)}; let db=null;
+let TASKS=[]; let FILTER={hama:false,hideDone:true,asgn:"all",cats:new Set(CATS)}; let db=null; let auth=null;
 
 const $=id=>document.getElementById(id);
 function el(t,c,h){const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;}
@@ -164,17 +180,20 @@ function configOk(){return FIREBASE_CONFIG&&FIREBASE_CONFIG.apiKey&&FIREBASE_CON
 if(!configOk()){ $("setup").style.display="block"; }
 else{
   try{
-    const appFb=initializeApp(FIREBASE_CONFIG); const auth=getAuth(appFb); db=getFirestore(appFb);
-    onAuthStateChanged(auth,u=>{ if(u){ startSync(); } });
-    signInAnonymously(auth).catch(e=>{ $("setup").style.display="block"; $("setupErr").textContent="ログインに失敗: "+(e.message||e)+"（AuthenticationのAnonymousを有効化してください）"; });
+    const appFb=initializeApp(FIREBASE_CONFIG); auth=getAuth(appFb); db=getFirestore(appFb);
+    onAuthStateChanged(auth,u=>{ if(u){ $("login").style.display="none"; startSync(); } else { $("login").style.display="block"; $("app").style.display="none"; } });
+    $("loginBtn").onclick=doLogin;
+    $("loginPw").addEventListener("keydown",e=>{ if(e.key==="Enter") doLogin(); });
   }catch(e){ $("setup").style.display="block"; $("setupErr").textContent="初期化に失敗: "+(e.message||e); }
 }
+async function doLogin(){ const em=$("loginEmail").value.trim(), pw=$("loginPw").value; $("loginErr").textContent=""; if(!em||!pw){$("loginErr").textContent="メールとパスワードを入力してください";return;} $("loginBtn").disabled=true; try{ await signInWithEmailAndPassword(auth,em,pw); }catch(e){ $("loginErr").textContent="ログインに失敗しました（メール/パスワードをご確認ください）"; } finally{ $("loginBtn").disabled=false; } }
 function startSync(){
   $("app").style.display="block"; $("syncBanner").classList.add("show"); initEvents();
   onSnapshot(collection(db,"tasks"),snap=>{
-    TASKS=snap.docs.map(d=>{const x=d.data();return {id:d.id,name:x.name||"",cat:x.cat||"デザイン実務",span:x.span||"今月中",pri:x.pri||"中",st:x.st||"未着手",asgn:x.asgn||"原裕也",parent:(x.parent||""),sd:x.sd||"",dd:x.dd||"",memo:x.memo||"",req:x.req||"",createdAt:x.createdAt&&x.createdAt.seconds?x.createdAt.seconds:0};});
+    TASKS=snap.docs.map(d=>{const x=d.data();return {id:d.id,name:x.name||"",cat:x.cat||"デザイン実務",span:x.span||"今月中",pri:x.pri||"中",st:x.st||"未着手",asgn:x.asgn||"原裕也",parent:(x.parent||""),sd:x.sd||"",dd:x.dd||"",memo:x.memo||"",req:x.req||"",srcKey:x.srcKey||"",createdAt:x.createdAt&&x.createdAt.seconds?x.createdAt.seconds:0};});
     TASKS.sort((a,b)=>a.createdAt-b.createdAt);
     render(); $("updated").textContent="最終同期: "+new Date().toLocaleString("ja-JP");
+    maybeImport();
   },err=>{ $("updated").textContent="同期エラー: "+(err.message||err); });
 }
 
@@ -230,11 +249,46 @@ function closeModal(){$("overlay").classList.remove("open");}
 async function saveModal(){const name=$("mName").value.trim();if(!name){alert("タスク名を入力してください");return;}const data={name,cat:$("mCat").value,asgn:$("mAsgn").value,span:$("mSpan").value,pri:$("mPri").value,st:$("mStat").value,req:$("mReq").value.trim(),memo:$("mMemo").value.trim(),parent:$("mParent").value||"",sd:$("mStart").value||"",dd:$("mDue").value||""};const id=$("mId").value;showSaving(true);closeModal();try{if(id){await updateDoc(doc(db,"tasks",id),data);}else{data.createdAt=serverTimestamp();await addDoc(collection(db,"tasks"),data);}}catch(e){alert("保存に失敗: "+(e.message||e));}finally{showSaving(false);}}
 async function delTask(){const id=$("mId").value;if(!id)return;if(!confirm("このタスクを削除しますか？"))return;showSaving(true);closeModal();try{await deleteDoc(doc(db,"tasks",id));}catch(e){alert("削除に失敗: "+(e.message||e));}finally{showSaving(false);}}
 
+/* ---- 方式A: 公開CSV(ミッション用タブ)から自動取り込み ---- */
+let importedOnce=false;
+function maybeImport(){ if(!SHEET_CSV_URL||importedOnce||!db) return; importedOnce=true; importFromSheet().catch(e=>console.warn("sheet import",e)); }
+function parseCSV(text){const rows=[];let i=0,f="",row=[],q=false;const push=()=>{row.push(f);f="";};const end=()=>{push();rows.push(row);row=[];};
+  while(i<text.length){const c=text[i];
+    if(q){if(c==='"'){if(text[i+1]==='"'){f+='"';i+=2;continue;}q=false;i++;continue;}f+=c;i++;continue;}
+    if(c==='"'){q=true;i++;continue;} if(c===','){push();i++;continue;} if(c==='\r'){i++;continue;} if(c==='\n'){end();i++;continue;} f+=c;i++;}
+  if(f.length||row.length)end(); return rows;}
+function mapAsgn(s){s=(s||"").trim();if(s.indexOf("原")>=0)return"原裕也";if(s.indexOf("秋田")>=0)return"秋田夕佳";if(s.indexOf("寺澤")>=0||s.indexOf("寺沢")>=0)return"寺澤花帆";return"その他";}
+function mapStatus(s){s=(s||"").trim().toLowerCase();if(s==="done"||s.indexOf("完了")>=0)return"完了";if(s.indexOf("not")>=0||s.indexOf("未")>=0)return"未着手";if(s.indexOf("保留")>=0)return"保留";if(s==="ing"||s.indexOf("進行")>=0)return"進行中";return"未着手";}
+function toISO(s){if(!s)return"";s=String(s).trim();let m=s.match(/(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);if(m)return m[1]+"-"+m[2].padStart(2,"0")+"-"+m[3].padStart(2,"0");m=s.match(/(\d{1,2})[\/\-.](\d{1,2})/);if(m)return new Date().getFullYear()+"-"+m[1].padStart(2,"0")+"-"+m[2].padStart(2,"0");return"";}
+function hashId(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))>>>0;return "sheet_"+h.toString(16);}
+// 進捗管理表の列: [0]マーカー(ミ) [1]起点 [2]締切日 [3]ST [4]担当者 [5]媒体 [6]内容 [7]詳細
+// 「ミ」印＝今月度ミッションのうち、今月締切・完了以外・担当が原/秋田/寺澤 のものだけ取り込む。
+// 既存doc(idはname+asgnのハッシュ)があればスキップ＝二重登録せず、ユーザー編集も保持。
+async function importFromSheet(){
+  const res=await fetch(SHEET_CSV_URL,{cache:"no-store"}); if(!res.ok)throw new Error("csv "+res.status); const text=await res.text();
+  const rows=parseCSV(text); if(!rows.length)return;
+  const today=new Date(); const yr=today.getFullYear(); const mo=today.getMonth()+1;
+  const existing=new Set(TASKS.map(t=>t.id)); let added=0;
+  for(const row of rows){
+    if(!row||row.length<7)continue;
+    if((row[0]||"").trim()!=="ミ")continue;
+    const kigen=(row[1]||"").trim(), shime=(row[2]||"").trim(), st=mapStatus(row[3]), tanto=(row[4]||"").trim(), baitai=(row[5]||"").trim(), naiyo=(row[6]||"").trim();
+    if(!naiyo||st==="完了")continue;
+    const asgn=mapAsgn(tanto); if(asgn==="その他")continue;
+    const md=shime.match(/(\d{1,2})\/(\d{1,2})/); if(!md)continue; const dmo=parseInt(md[1],10); if(dmo!==mo)continue;
+    const dd=yr+"-"+String(dmo).padStart(2,"0")+"-"+String(parseInt(md[2],10)).padStart(2,"0");
+    const id=hashId(naiyo+"__"+asgn); if(existing.has(id))continue; existing.add(id);
+    const data={name:naiyo,cat:"今月度のミッション",asgn,span:"今月中",pri:"中",st,req:"進捗管理表",memo:baitai?("媒体:"+baitai+"（シート自動同期）"):"シート自動同期",parent:"",sd:toISO(kigen),dd,srcKey:id,createdAt:serverTimestamp()};
+    try{await setDoc(doc(db,"tasks",id),data);added++;}catch(e){console.warn("add",naiyo,e);}
+  }
+  if(added)$("updated").textContent="シートから"+added+"件のミッションを取り込みました（"+new Date().toLocaleString("ja-JP")+"）";
+}
+
 /* ---- filters/events ---- */
 function buildCatChips(){const box=$("catChips");box.innerHTML="";CATS.forEach(c=>{const ch=el("span","chip",c);if(FILTER.cats.has(c)){ch.style.background=CATCOLOR[c];ch.style.borderColor=CATCOLOR[c];ch.style.color="#fff";}ch.onclick=()=>{if(FILTER.cats.has(c)){FILTER.cats.delete(c);ch.style.background="#fff";ch.style.color="#1f2430";}else{FILTER.cats.add(c);ch.style.background=CATCOLOR[c];ch.style.color="#fff";}render();};box.appendChild(ch);});}
 function buildAsgnChips(){const box=$("asgnChips");box.innerHTML="";[["all","全員","#111827"]].concat(MEMBERS.map(m=>[m,ASGNSHORT[m],ASGNCOLOR[m]])).forEach(([val,label,color])=>{const ch=el("span","chip"+(FILTER.asgn===val?" active":""),label);if(FILTER.asgn===val){ch.style.background=color;ch.style.borderColor=color;ch.style.color="#fff";}ch.onclick=()=>{FILTER.asgn=val;buildAsgnChips();render();};box.appendChild(ch);});}
 let inited=false;
-function initEvents(){if(inited)return;inited=true;$("addBtn").onclick=openAdd;$("togglePanel").onclick=()=>$("sidePanel").classList.toggle("open");$("spClose").onclick=()=>$("sidePanel").classList.remove("open");$("mCancel").onclick=closeModal;$("mSave").onclick=saveModal;$("mDelete").onclick=delTask;$("overlay").onclick=e=>{if(e.target===$("overlay"))closeModal();};$("fHama").onclick=()=>{FILTER.hama=!FILTER.hama;$("fHama").classList.toggle("active",FILTER.hama);render();};$("hideDone").onclick=()=>{FILTER.hideDone=!FILTER.hideDone;$("hideDone").classList.toggle("active",FILTER.hideDone);render();};buildCatChips();buildAsgnChips();let rt;window.addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(render,200);});}
+function initEvents(){if(inited)return;inited=true;$("addBtn").onclick=openAdd;$("logoutBtn").onclick=()=>{if(auth)signOut(auth);};$("togglePanel").onclick=()=>$("sidePanel").classList.toggle("open");$("spClose").onclick=()=>$("sidePanel").classList.remove("open");$("mCancel").onclick=closeModal;$("mSave").onclick=saveModal;$("mDelete").onclick=delTask;$("overlay").onclick=e=>{if(e.target===$("overlay"))closeModal();};$("fHama").onclick=()=>{FILTER.hama=!FILTER.hama;$("fHama").classList.toggle("active",FILTER.hama);render();};$("hideDone").onclick=()=>{FILTER.hideDone=!FILTER.hideDone;$("hideDone").classList.toggle("active",FILTER.hideDone);render();};buildCatChips();buildAsgnChips();let rt;window.addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(render,200);});}
 </script>
 </body>
 </html>
