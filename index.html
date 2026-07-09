@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>チーム・タスクガント（閲覧用スナップショット）</title>
+<style>
+  :root{color-scheme:light;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic","Meiryo",sans-serif;background:#f7f8fa;color:#1f2430;line-height:1.5;}
+  .wrap{max-width:100%;margin:0 auto;padding:16px 16px 60px;}
+  h1{font-size:18px;margin:0 0 2px;}
+  .sub{color:#6b7280;font-size:12px;margin-bottom:12px;}
+  .ro{display:inline-block;background:#fef3c7;color:#92400e;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;margin-left:6px;}
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px;}
+  .chip{border:1px solid #d1d5db;background:#fff;border-radius:999px;padding:4px 11px;font-size:12px;cursor:pointer;user-select:none;}
+  .chip.active{background:#111827;color:#fff;border-color:#111827;}
+  .spacer{flex:1;}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:9px;margin-bottom:14px;}
+  .kpi{background:#fff;border:1px solid #e6e8ec;border-radius:10px;padding:9px 11px;}
+  .kpi .l{font-size:11px;color:#6b7280;} .kpi .v{font-size:21px;font-weight:700;margin-top:2px;}
+  .kpi.now .v{color:#b45309;}
+  .section{background:#fff;border:1px solid #e6e8ec;border-radius:12px;padding:14px;margin-bottom:16px;}
+  .section h2{font-size:14px;margin:0 0 10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .section h2 .count{font-size:11px;color:#6b7280;font-weight:500;}
+  .tag{display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:999px;color:#fff;white-space:nowrap;}
+  .pill{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px;white-space:nowrap;}
+  .p-hi{background:#fee2e2;color:#b91c1c;} .p-mid{background:#fef3c7;color:#b45309;} .p-lo{background:#e5e7eb;color:#4b5563;}
+  .gantt-scroll{overflow-x:auto;overflow-y:hidden;border:1px solid #e6e8ec;border-radius:10px;background:#fff;}
+  .gantt{position:relative;}
+  .grow{display:flex;align-items:stretch;}
+  .lc{position:sticky;left:0;z-index:4;background:#fff;width:236px;min-width:236px;flex:0 0 236px;box-shadow:1px 0 0 #e6e8ec,4px 0 7px -4px rgba(0,0,0,.18);display:flex;align-items:center;gap:7px;padding:5px 8px;}
+  .tl{position:relative;flex:0 0 auto;}
+  .celln{flex:0 0 auto;text-align:center;font-size:11px;color:#6b7280;border-left:1px solid #f0f2f5;padding:2px 0;white-space:nowrap;}
+  .celln.we{background:#f1f2f5;} .celln.hol{background:#fdecef;color:#be185d;} .celln.today{background:#dbeafe;color:#1d4ed8;font-weight:700;}
+  .hmonth{border-bottom:1px solid #eef0f3;} .hmonth .lc{z-index:6;font-size:11px;color:#9ca3af;font-weight:600;}
+  .mseg{flex:0 0 auto;text-align:center;font-size:12px;font-weight:700;color:#374151;border-left:2px solid #e6e8ec;padding:3px 0;white-space:nowrap;background:#fafbfc;}
+  .hday{border-bottom:1px solid #e6e8ec;} .hday .lc{z-index:6;font-size:11px;color:#9ca3af;}
+  .lane{border-top:1px solid #eef0f3;} .lane .lc{z-index:5;background:#f8fafc;font-weight:700;font-size:12px;} .lane .tl{background:#f8fafc;}
+  .grow.trow{border-top:1px solid #f4f5f7;min-height:34px;}
+  .asgn-dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;}
+  .box{width:14px;height:14px;border:1.5px solid #cbd5e1;border-radius:3px;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:#fff;}
+  .box.done{background:#22c55e;border-color:#22c55e;}
+  .lc .nm{flex:1;min-width:0;}
+  .lc .nm .rname{font-weight:600;font-size:12px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .lc .nm .rmeta{font-size:10px;color:#9ca3af;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .sub .lc{padding-left:26px;} .sub .lc .nm .rname{font-weight:500;color:#4b5563;} .sub-mark{color:#cbd5e1;flex:0 0 auto;font-size:11px;}
+  .track{position:relative;height:100%;min-height:34px;}
+  .gline{position:absolute;top:0;bottom:0;border-left:1px solid #f4f5f7;} .gline.we{background:#f7f8fa;} .gline.hol{background:#fdecef;}
+  .todayline{position:absolute;top:0;bottom:0;width:2px;background:#2563eb;opacity:.55;z-index:3;}
+  .bar{position:absolute;top:7px;height:20px;border-radius:6px;display:flex;align-items:center;padding:0 7px;font-size:10px;color:#fff;font-weight:600;overflow:hidden;white-space:nowrap;z-index:2;box-shadow:0 1px 2px rgba(0,0,0,.15);}
+  .bar.sub{height:15px;top:9px;opacity:.9;font-size:9px;}
+  .bar.done{opacity:.4;text-decoration:line-through;} .bar.overdue{outline:2px solid #b91c1c;outline-offset:1px;}
+  .g-legend{display:flex;gap:13px;flex-wrap:wrap;font-size:11px;color:#4b5563;margin:2px 0 8px;align-items:center;}
+  .g-legend span{display:inline-flex;align-items:center;gap:5px;} .g-legend i{width:11px;height:11px;border-radius:3px;display:inline-block;border:1px solid #e2e4e8;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>チーム・タスクガント <span style="font-size:12px;font-weight:400;color:#6b7280;">（WP課 3名）</span><span class="ro">閲覧用スナップショット</span></h1>
+  <div class="sub" id="sub"></div>
+  <div class="toolbar">
+    <span style="font-size:11px;color:#9ca3af;">担当:</span>
+    <span id="asgnChips" style="display:inline-flex;gap:6px;flex-wrap:wrap;"></span>
+    <span class="chip active" id="hideDone">完了を隠す</span>
+    <span class="spacer"></span>
+    <span id="catChips" style="display:inline-flex;gap:6px;flex-wrap:wrap;"></span>
+  </div>
+  <div class="kpis" id="kpis"></div>
+  <div class="section">
+    <h2>ガントチャート <span class="count" id="ganttHint"></span></h2>
+    <div class="g-legend">
+      <span><i style="background:#3b82f6"></i>原</span><span><i style="background:#ec4899"></i>秋田</span><span><i style="background:#14b8a6"></i>寺澤</span>
+      <span style="margin-left:6px;"><i style="background:#f1f2f5"></i>土日</span><span><i style="background:#fdecef;border-color:#f6c3d0"></i>祝日</span><span><i style="background:#2563eb;border-color:#2563eb"></i>今日</span>
+      <span style="color:#9ca3af">バーの色＝担当者。この画面は閲覧専用です（編集は原が管理）。</span>
+    </div>
+    <div class="gantt-scroll" id="ganttScroll"><div class="gantt" id="gantt"></div></div>
+  </div>
+</div>
+
+<script>
+const SNAPSHOT_AT="2026-07-09";
+const DATA=[
+ {id:"a1",name:"TikTok広告 未配信の却下理由確認・修正",cat:"広告運用・外部連携",span:"数時間以内",pri:"高",st:"完了",asgn:"原裕也",parent:"",sd:"2026-07-09",dd:"2026-07-09"},
+ {id:"a2",name:"TikTok広告TSP001 クリエイティブ修正・再入稿",cat:"広告運用・外部連携",span:"本日中",pri:"高",st:"完了",asgn:"原裕也",parent:"",sd:"2026-07-09",dd:"2026-07-09"},
+ {id:"a3",name:"直談HPデザイン",cat:"デザイン実務",span:"今月中",pri:"高",st:"進行中",asgn:"原裕也",parent:"",sd:"2026-07-09",dd:"2026-07-24"},
+ {id:"a4",name:"バナークリエイティブ3種の初稿デザイン",cat:"部下2名への指示",span:"今週中",pri:"中",st:"完了",asgn:"秋田夕佳",parent:"",sd:"2026-07-09",dd:"2026-07-12"},
+ {id:"a5",name:"月30万円訴求LPのバナー構成案5枚",cat:"今月度のミッション",span:"今月中",pri:"中",st:"未着手",asgn:"秋田夕佳",parent:"",sd:"2026-06-25",dd:"2026-07-24"},
+ {id:"a6",name:"アポ数700件",cat:"今月度のミッション",span:"今月中",pri:"高",st:"進行中",asgn:"原裕也",parent:"",sd:"2026-06-25",dd:"2026-07-24"},
+ {id:"a7",name:"SEO構成案2本",cat:"今月度のミッション",span:"今月中",pri:"中",st:"進行中",asgn:"寺澤花帆",parent:"",sd:"2026-07-03",dd:"2026-07-24"},
+ {id:"a8",name:"稟議・今井さんとの契約更新",cat:"今月度のミッション",span:"今月中",pri:"中",st:"進行中",asgn:"秋田夕佳",parent:"",sd:"2026-06-25",dd:"2026-07-17"},
+ {id:"a9",name:"LINE広告の最適化",cat:"今月度のミッション",span:"今月中",pri:"中",st:"進行中",asgn:"寺澤花帆",parent:"",sd:"2026-07-03",dd:"2026-07-24"},
+ {id:"a10",name:"Claudeで作成するダッシュボードの構成を考える",cat:"今月度のミッション",span:"今月中",pri:"中",st:"進行中",asgn:"寺澤花帆",parent:"",sd:"2026-07-03",dd:"2026-07-24"},
+ {id:"a11",name:"LP実装",cat:"今月度のミッション",span:"今月中",pri:"中",st:"進行中",asgn:"寺澤花帆",parent:"",sd:"2026-07-03",dd:"2026-07-24"},
+ {id:"a12",name:"直談のHPデザイン",cat:"今月度のミッション",span:"今月中",pri:"高",st:"未着手",asgn:"原裕也",parent:"",sd:"2026-07-09",dd:"2026-07-24"},
+ {id:"a13",name:"SEO6月分構成案を記事作成→WordPressに投稿",cat:"今月度のミッション",span:"今月中",pri:"中",st:"進行中",asgn:"寺澤花帆",parent:"",sd:"2026-07-03",dd:"2026-07-24"},
+ {id:"a14",name:"作成したLPの検証レポート（ポエティック,AI1,AI2,効率化,BIZMAPS）",cat:"今月度のミッション",span:"今月中",pri:"中",st:"進行中",asgn:"寺澤花帆",parent:"",sd:"2026-07-03",dd:"2026-07-24"},
+ {id:"a15",name:"自作LPのリライト2本（ポエティックと〇〇）",cat:"今月度のミッション",span:"今月中",pri:"中",st:"進行中",asgn:"寺澤花帆",parent:"",sd:"2026-07-03",dd:"2026-07-24"},
+ {id:"a16",name:"バナー10枚（Aimsales, SP）",cat:"今月度のミッション",span:"今月中",pri:"中",st:"進行中",asgn:"寺澤花帆",parent:"",sd:"2026-07-03",dd:"2026-07-24"},
+ {id:"a17",name:"除外KW対応（週1回以上）",cat:"今月度のミッション",span:"今月中",pri:"中",st:"進行中",asgn:"秋田夕佳",parent:"",sd:"2026-06-25",dd:"2026-07-24"},
+ {id:"a18",name:"Tiktok広告の開設と広告の配信",cat:"今月度のミッション",span:"今月中",pri:"中",st:"進行中",asgn:"秋田夕佳",parent:"",sd:"2026-06-25",dd:"2026-07-24"},
+ {id:"a19",name:"マーケメディアリニューアル",cat:"今月度のミッション",span:"今月中",pri:"中",st:"保留",asgn:"原裕也",parent:"",sd:"2026-06-25",dd:"2026-07-24"},
+ {id:"a20",name:"月30万円訴求LPの構成案",cat:"今月度のミッション",span:"今月中",pri:"中",st:"進行中",asgn:"秋田夕佳",parent:"",sd:"2026-07-03",dd:"2026-07-10"},
+ {id:"a21",name:"LP構成案1つ（効率化LPの横展開）",cat:"今月度のミッション",span:"今月中",pri:"中",st:"進行中",asgn:"寺澤花帆",parent:"",sd:"2026-07-03",dd:"2026-07-24"},
+ {id:"a3s",name:"ロゴ作り直し",cat:"デザイン実務",span:"今週中",pri:"高",st:"進行中",asgn:"原裕也",parent:"a3",sd:"2026-07-09",dd:"2026-07-10"}
+];
+
+const LABELW=236;
+const HOLIDAYS={"2026-07-20":"海の日","2026-08-11":"山の日","2026-09-21":"敬老の日","2026-09-22":"国民の休日","2026-09-23":"秋分の日","2026-10-12":"スポーツの日","2026-11-03":"文化の日","2026-11-23":"勤労感謝の日"};
+function holName(d){return HOLIDAYS[ymd(d)]||null;}
+const CATS=["濱田さん案件","デザイン実務","部下2名への指示","広告運用・外部連携","今月度のミッション"];
+const CATCOLOR={"濱田さん案件":"#ef4444","デザイン実務":"#3b82f6","部下2名への指示":"#8b5cf6","広告運用・外部連携":"#f59e0b","今月度のミッション":"#22c55e"};
+const SPANS=["数時間以内","本日中","今週中","今月中"];
+const PRIS=["高","中","低"];
+const ASGNCOLOR={"原裕也":"#3b82f6","秋田夕佳":"#ec4899","寺澤花帆":"#14b8a6","その他":"#6b7280"};
+const ASGNSHORT={"原裕也":"原","秋田夕佳":"秋田","寺澤花帆":"寺澤"};
+const MEMBERS=["原裕也","秋田夕佳","寺澤花帆"];
+let TASKS=DATA.map(t=>Object.assign({},t,{parent:(t.parent||"").trim()}));
+let FILTER={hideDone:true,asgn:"all",cats:new Set(CATS)};
+
+function $(id){return document.getElementById(id);}
+function el(t,c,h){const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[m]));}
+function ymd(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function parseDate(s){if(!s)return null;const d=new Date(String(s).slice(0,10)+"T00:00:00");return isNaN(d)?null:d;}
+function endOfWeek(d){const x=new Date(d);const dow=(x.getDay()+6)%7;x.setDate(x.getDate()+(6-dow));return x;}
+function endOfMonth(d){return new Date(d.getFullYear(),d.getMonth()+1,0);}
+function deriveEnd(t,today){const dd=parseDate(t.dd);if(dd)return dd;if(t.span==="数時間以内"||t.span==="本日中")return new Date(today);if(t.span==="今週中")return endOfWeek(today);return endOfMonth(today);}
+function deriveStart(t,today){const sd=parseDate(t.sd);return sd||new Date(today);}
+function spanRank(s){return SPANS.indexOf(s);} function priRank(p){return PRIS.indexOf(p);}
+function passFilter(t){ if(FILTER.hideDone&&t.st==="完了")return false; if(FILTER.asgn!=="all"&&t.asgn!==FILTER.asgn)return false; if(!FILTER.cats.has(t.cat))return false; return true; }
+
+function render(){ const today=new Date();today.setHours(0,0,0,0); renderKpis(today); renderGantt(today);
+  $("sub").textContent="スナップショット（"+SNAPSHOT_AT+" 時点）・閲覧専用。最新の状態はリーダー（原）のボードで管理されています。"; }
+
+function renderKpis(today){
+  const open=TASKS.filter(t=>t.st!=="完了"); const cnt=s=>open.filter(t=>t.span===s).length;
+  const box=$("kpis");box.innerHTML="";
+  [["数時間以内",cnt("数時間以内"),"now"],["本日中",cnt("本日中"),"now"],["今週中",cnt("今週中"),""],["今月中",cnt("今月中"),""]]
+   .forEach(([l,v,c])=>box.appendChild(el("div","kpi "+c,`<div class="l">${l}</div><div class="v">${v}<span style="font-size:12px;font-weight:600;color:#9ca3af;"> 件</span></div>`)));
+  MEMBERS.forEach(m=>box.appendChild(el("div","kpi",`<div class="l">${m}</div><div class="v" style="color:${ASGNCOLOR[m]}">${open.filter(t=>t.asgn===m).length}<span style="font-size:12px;font-weight:600;color:#9ca3af;"> 件</span></div>`)));
+}
+function calcCOL(){const sc=$("ganttScroll");const avail=(sc?sc.clientWidth:960)-LABELW-2;return Math.max(30,Math.min(66,Math.floor(avail/14)));}
+
+function renderGantt(today){
+  const box=$("gantt");box.innerHTML="";
+  const shown=TASKS.filter(passFilter);
+  if(!shown.length){box.appendChild(el("div","",'<div style="padding:24px;text-align:center;color:#9ca3af;">表示するタスクがありません。</div>'));box.style.width="100%";$("ganttHint").textContent="";return;}
+  const DAY=86400000;
+  let minS=new Date(today),maxE=endOfMonth(today);
+  shown.forEach(t=>{const s=deriveStart(t,today),e=deriveEnd(t,today);if(s<minS)minS=new Date(s);if(e>maxE)maxE=new Date(e);});
+  minS.setHours(0,0,0,0);maxE.setHours(0,0,0,0);
+  const totalDays=Math.round((maxE-minS)/DAY)+1;const COL=calcCOL();const tlWidth=totalDays*COL;
+  box.style.width=(LABELW+tlWidth)+"px";
+  $("ganttHint").textContent=`（${ymd(minS).slice(5)}〜${ymd(maxE).slice(5)}／横スクロールで移動）`;
+  const posX=d=>Math.round((d-minS)/DAY)*COL;
+  // month
+  const hm=el("div","grow hmonth");hm.appendChild(el("div","lc","月"));
+  const hmTl=el("div","tl");hmTl.style.width=tlWidth+"px";hmTl.style.display="flex";
+  {let i=0;while(i<totalDays){const d=new Date(minS.getTime()+i*DAY);const mo=d.getMonth();let cnt=0;while(i+cnt<totalDays){const dd=new Date(minS.getTime()+(i+cnt)*DAY);if(dd.getMonth()!==mo)break;cnt++;}const seg=el("div","mseg",d.getFullYear()+"年"+(mo+1)+"月");seg.style.width=(cnt*COL)+"px";hmTl.appendChild(seg);i+=cnt;}}
+  hm.appendChild(hmTl);box.appendChild(hm);
+  // day
+  const hd=el("div","grow hday");hd.appendChild(el("div","lc","タスク / 担当"));
+  const hdTl=el("div","tl");hdTl.style.width=tlWidth+"px";hdTl.style.display="flex";
+  for(let i=0;i<totalDays;i++){const d=new Date(minS.getTime()+i*DAY);const hn=holName(d);let c="celln"+((d.getDay()===0||d.getDay()===6)?" we":"")+(hn?" hol":"")+(ymd(d)===ymd(today)?" today":"");const cell=el("div",c,""+d.getDate());cell.style.width=COL+"px";if(hn)cell.title=hn;hdTl.appendChild(cell);}
+  hd.appendChild(hdTl);box.appendChild(hd);
+  function makeTrack(){const tr=el("div","track");tr.style.width=tlWidth+"px";for(let i=0;i<totalDays;i++){const d=new Date(minS.getTime()+i*DAY);const hn=holName(d);const g=el("div","gline"+((d.getDay()===0||d.getDay()===6)?" we":"")+(hn?" hol":""));g.style.left=(i*COL)+"px";g.style.width=COL+"px";tr.appendChild(g);}if(today>=minS&&today<=maxE){const t=el("div","todayline");t.style.left=(posX(today)+COL/2)+"px";tr.appendChild(t);}return tr;}
+  function taskRow(t,isSub){
+    const row=el("div","grow trow"+(isSub?" sub":""));
+    const lc=el("div","lc");
+    lc.appendChild(el("span","box"+(t.st==="完了"?" done":""),t.st==="完了"?"✓":""));
+    if(isSub)lc.appendChild(el("span","sub-mark","└"));
+    const dot=el("span","asgn-dot");dot.style.background=ASGNCOLOR[t.asgn]||"#9ca3af";lc.appendChild(dot);
+    const nm=el("div","nm");const pr=t.pri==="高"?"p-hi":t.pri==="中"?"p-mid":"p-lo";
+    nm.innerHTML=`<span class="rname" title="${esc(t.name)}">${esc(t.name)}</span><span class="rmeta"><b style="color:${ASGNCOLOR[t.asgn]||'#6b7280'}">${esc(ASGNSHORT[t.asgn]||t.asgn||'-')}</b> ・${esc(t.span||'')} ・<span class="pill ${pr}">${esc(t.pri||'-')}</span> ${esc(t.st||'')}</span>`;
+    lc.appendChild(nm);
+    const track=makeTrack();
+    const s=deriveStart(t,today),e=deriveEnd(t,today);
+    let left=posX(s),w=(Math.round((e-s)/DAY)+1)*COL;if(w<COL*0.9)w=Math.round(COL*0.9);
+    const bar=el("div","bar"+(isSub?" sub":"")+(t.st==="完了"?" done":"")+((e<today&&t.st!=="完了")?" overdue":""));
+    bar.style.left=left+"px";bar.style.width=w+"px";bar.style.background=ASGNCOLOR[t.asgn]||"#6b7280";
+    bar.title=t.name+" ("+(t.st||"")+" / "+(t.asgn||"")+")";bar.textContent=t.name;
+    track.appendChild(bar);
+    row.appendChild(lc);row.appendChild(track);return row;
+  }
+  const childrenOf={};shown.forEach(t=>{if(t.parent){(childrenOf[t.parent]=childrenOf[t.parent]||[]).push(t);}});
+  CATS.forEach(cat=>{
+    const laneTasks=shown.filter(t=>t.cat===cat);if(!laneTasks.length)return;
+    const parents=laneTasks.filter(t=>!t.parent);const pids=new Set(parents.map(p=>p.id));
+    parents.sort((a,b)=>priRank(a.pri)-priRank(b.pri)||spanRank(a.span)-spanRank(b.span));
+    const lane=el("div","grow lane");lane.appendChild(el("div","lc",`<span class="tag" style="background:${CATCOLOR[cat]}">${esc(cat)}</span> <span style="color:#9ca3af;font-weight:500;font-size:11px;">${laneTasks.length}件</span>`));
+    const lt=el("div","tl");lt.style.width=tlWidth+"px";lane.appendChild(lt);box.appendChild(lane);
+    parents.forEach(p=>{box.appendChild(taskRow(p,false));(childrenOf[p.id]||[]).sort((a,b)=>spanRank(a.span)-spanRank(b.span)).forEach(ch=>box.appendChild(taskRow(ch,true)));});
+    laneTasks.filter(t=>t.parent&&!pids.has(t.parent)).forEach(ch=>box.appendChild(taskRow(ch,true)));
+  });
+  const sc=$("ganttScroll");if(sc){sc.scrollLeft=Math.max(0,posX(today)-COL*2);}
+}
+function buildCatChips(){const box=$("catChips");box.innerHTML="";CATS.forEach(c=>{const ch=el("span","chip",c);if(FILTER.cats.has(c)){ch.style.background=CATCOLOR[c];ch.style.borderColor=CATCOLOR[c];ch.style.color="#fff";}ch.onclick=()=>{if(FILTER.cats.has(c)){FILTER.cats.delete(c);ch.style.background="#fff";ch.style.color="#1f2430";}else{FILTER.cats.add(c);ch.style.background=CATCOLOR[c];ch.style.color="#fff";}render();};box.appendChild(ch);});}
+function buildAsgnChips(){const box=$("asgnChips");box.innerHTML="";[["all","全員","#111827"]].concat(MEMBERS.map(m=>[m,ASGNSHORT[m],ASGNCOLOR[m]])).forEach(([val,label,color])=>{const ch=el("span","chip"+(FILTER.asgn===val?" active":""),label);if(FILTER.asgn===val){ch.style.background=color;ch.style.borderColor=color;ch.style.color="#fff";}ch.onclick=()=>{FILTER.asgn=val;buildAsgnChips();render();};box.appendChild(ch);});}
+$("hideDone").onclick=()=>{FILTER.hideDone=!FILTER.hideDone;$("hideDone").classList.toggle("active",FILTER.hideDone);render();};
+buildCatChips();buildAsgnChips();
+let rt;window.addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(render,200);});
+render();
+</script>
+</body>
+</html>
