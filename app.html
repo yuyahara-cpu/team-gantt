@@ -97,11 +97,16 @@
   .main{flex:1;min-width:0;padding-top:12px;}
   .main-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;}
   .main-title{font-size:16px;font-weight:800;letter-spacing:-.02em;}
-  .main-top{align-items:center;}
+  .main-top{align-items:flex-start;}
   .date-hero{display:flex;align-items:center;gap:15px;min-width:0;}
-  .dh-tile{width:62px;height:66px;border-radius:15px;background:linear-gradient(140deg,var(--primary),var(--primary-2));color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 10px 20px -7px var(--ring);flex:0 0 auto;}
+  .dh-tile{width:84px;height:92px;border-radius:16px;background:#111827;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:0 10px 22px -8px rgba(16,24,40,.4);flex:0 0 auto;}
   .dh-tile .dh-mo{font-size:11px;font-weight:700;letter-spacing:.05em;opacity:.92;line-height:1;}
-  .dh-tile .dh-day{font-size:31px;font-weight:800;line-height:1.05;letter-spacing:-.02em;}
+  .dh-tile .dh-day{font-size:46px;font-weight:800;line-height:.95;letter-spacing:-.03em;}
+  .dh-date{font-size:22px!important;}
+  .cyc-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;} .cyc-mo{font-size:14px;font-weight:800;color:var(--text);} .cyc-range{font-size:11px;color:var(--faint);font-weight:600;}
+  .cyc-big{font-size:13px;color:var(--muted);font-weight:600;margin-bottom:7px;} .cyc-big b{font-size:26px;color:#ea580c;font-weight:800;margin:0 3px;letter-spacing:-.02em;}
+  .cyc-track{height:8px;border-radius:999px;background:#eceef2;overflow:hidden;} .cyc-track>i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--primary),var(--primary-2));}
+  .cyc-sub{font-size:10px;color:var(--faint);margin-top:6px;text-align:right;}
   .dh-info{min-width:0;}
   .dh-date{font-size:18px;font-weight:800;letter-spacing:-.01em;color:var(--text);}
   .dh-date .dh-wd{font-size:13px;font-weight:600;color:var(--muted);margin-left:3px;}
@@ -129,6 +134,10 @@
       </div>
       <button class="btn primary block" id="addBtn">＋ タスク追加</button>
       <button class="btn block" id="togglePanel">🗒 今日の推奨</button>
+      <div class="side-sec">
+        <div class="side-title">今月度の消化（アイドマ暦）</div>
+        <div id="cycleCard"></div>
+      </div>
       <div class="side-sec">
         <div class="side-title">直近フォーカス <span class="count">数時間以内・本日中</span></div>
         <div id="focus" class="focus-compact"></div>
@@ -158,11 +167,6 @@
           <button class="btn ghost" id="logoutBtn">ログアウト</button>
           <div class="sub" id="updated">読み込み中…</div>
         </div>
-      </div>
-      <div class="g-legend">
-        <span><i style="background:#6366f1"></i>原</span><span><i style="background:#ec4899"></i>秋田</span><span><i style="background:#14b8a6"></i>寺澤</span>
-        <span style="margin-left:6px;"><i style="background:#f6f7f9"></i>土日</span><span><i style="background:#fdeef4;border-color:#f6c3d0"></i>祝日</span><span><i style="background:#6366f1;border-color:#6366f1"></i>今日</span>
-        <span style="color:#94a3b8">バーの色＝担当者。行の□で完了。＋で小項目。</span>
       </div>
       <div class="gantt-scroll" id="ganttScroll"><div class="gantt" id="gantt"></div></div>
     </main>
@@ -297,16 +301,19 @@ const AIDMA2026=[[1,"2026-01-05","2026-01-30"],[2,"2026-02-02","2026-02-27"],[3,
 function bizCount(a,b){let n=0;const DAY=86400000;for(let d=new Date(a);d<=b;d=new Date(d.getTime()+DAY)){if(isBiz(d))n++;}return n;}
 function fmtMD(iso){const p=iso.split("-");return (+p[1])+"/"+(+p[2]);}
 function renderCalStrip(td){
-  const box=$("dateHero"); if(!box) return;
   const wd=["日","月","火","水","木","金","土"][td.getDay()];
+  const hero=$("dateHero");
+  if(hero) hero.innerHTML=`<div class="dh-tile"><span class="dh-mo">${td.getMonth()+1}月</span><span class="dh-day">${td.getDate()}</span></div>`+
+    `<div class="dh-info"><div class="dh-date">${td.getFullYear()}年${td.getMonth()+1}月${td.getDate()}日<span class="dh-wd">（${wd}）</span></div></div>`;
+  const cc=$("cycleCard"); if(!cc) return;
   let cur=null;
   for(const [m,s,e] of AIDMA2026){const sd=new Date(s+"T00:00:00"),ed=new Date(e+"T00:00:00");if(td>=sd&&td<=ed){cur=[m,sd,ed,s,e];break;}}
-  let badges="";
   if(cur){const [m,sd,ed,s,e]=cur;const total=bizCount(sd,ed);const remain=bizCount(td>sd?td:sd,ed);const done=total-remain;const pct=total?Math.round(done/total*100):0;
-    badges=`<span class="cal-badge accent">アイドマ暦 <b>${m}月度</b> ${fmtMD(s)}–${fmtMD(e)}</span><span class="cal-badge">営業日 <b>${total}</b>日中 <span class="rem">残り${remain}日</span>（経過${done}）<span class="cal-bar"><i style="width:${pct}%"></i></span></span>`;
-  } else { badges=`<span class="cal-badge">アイドマ暦：月度の切替期間です</span>`; }
-  box.innerHTML=`<div class="dh-tile"><span class="dh-mo">${td.getMonth()+1}月</span><span class="dh-day">${td.getDate()}</span></div>`+
-    `<div class="dh-info"><div class="dh-date">${td.getFullYear()}年${td.getMonth()+1}月${td.getDate()}日<span class="dh-wd">（${wd}）</span></div><div class="dh-badges">${badges}</div></div>`;
+    cc.innerHTML=`<div class="cyc-head"><span class="cyc-mo">${m}月度</span><span class="cyc-range">${fmtMD(s)}–${fmtMD(e)}</span></div>`+
+      `<div class="cyc-big">残り<b>${remain}</b>営業日</div>`+
+      `<div class="cyc-track"><i style="width:${pct}%"></i></div>`+
+      `<div class="cyc-sub">全${total}営業日・${done}日経過（${pct}%）</div>`;
+  } else { cc.innerHTML=`<div class="cyc-sub" style="text-align:left">月度の切替期間です</div>`; }
 }
 function render(){const td=new Date();td.setHours(0,0,0,0);renderCalStrip(td);renderKpis(td);renderFocus(td);renderGantt(td);renderTodoPanel(td);}
 function renderKpis(td){const open=TASKS.filter(t=>t.st!=="完了");const cnt=s=>open.filter(t=>t.span===s).length;const box=$("kpis");box.innerHTML="";
