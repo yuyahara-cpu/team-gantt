@@ -97,6 +97,10 @@
   .main{flex:1;min-width:0;padding-top:12px;}
   .main-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;}
   .main-title{font-size:16px;font-weight:800;letter-spacing:-.02em;}
+  .cal-strip{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin:7px 0 3px;}
+  .cal-badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;background:#fff;border:1px solid var(--border);color:var(--muted);box-shadow:var(--shadow-sm);}
+  .cal-badge b{color:var(--text);} .cal-badge.accent{background:#eef0fe;border-color:#e2e5fb;color:var(--primary-ink);} .cal-badge .rem{color:#ea580c;font-weight:800;}
+  .cal-bar{display:inline-block;width:74px;height:6px;border-radius:999px;background:#eceef2;overflow:hidden;vertical-align:middle;margin-left:2px;} .cal-bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--primary),var(--primary-2));}
   .main .sub{margin:3px 0 0;}
   @media(max-width:900px){.shell{flex-direction:column;}.sidebar{width:100%;flex:none;position:static;max-height:none;}.sidebar .kpis{grid-template-columns:repeat(auto-fit,minmax(108px,1fr));}}
   .focus-compact .focus-item{padding:5px 2px;gap:8px;} .focus-compact .focus-item .name{font-size:12px;} .focus-compact .focus-item .meta{font-size:10px;margin-top:2px;}
@@ -138,7 +142,7 @@
     </aside>
     <main class="main">
       <div class="main-top">
-        <div><div class="main-title">ガントチャート <span class="count" id="ganttHint"></span></div><div class="sub" id="updated">読み込み中…</div></div>
+        <div><div class="main-title">ガントチャート <span class="count" id="ganttHint"></span></div><div class="cal-strip" id="calStrip"></div><div class="sub" id="updated">読み込み中…</div></div>
         <div class="ab-right"><span class="sync-pill" id="syncBanner"><span class="dot"></span>リアルタイム同期中</span><button class="btn ghost" id="logoutBtn">ログアウト</button></div>
       </div>
       <div class="g-legend">
@@ -274,7 +278,23 @@ function startSync(){
 
 /* ---- render (gantt) ---- */
 function passFilter(t){ if(FILTER.hideDone&&t.st==="完了")return false; if(FILTER.hama&&t.cat!=="濱田さん案件")return false; if(FILTER.asgn!=="all"&&t.asgn!==FILTER.asgn)return false; if(CATS.includes(t.cat)&&!FILTER.cats.has(t.cat))return false; return true; }
-function render(){const td=new Date();td.setHours(0,0,0,0);renderKpis(td);renderFocus(td);renderGantt(td);renderTodoPanel(td);}
+// アイドマ暦2026（各月度：締め日翌日〜締め日）
+const AIDMA2026=[[1,"2026-01-05","2026-01-30"],[2,"2026-02-02","2026-02-27"],[3,"2026-03-02","2026-03-27"],[4,"2026-03-30","2026-04-24"],[5,"2026-04-27","2026-05-29"],[6,"2026-06-01","2026-06-26"],[7,"2026-06-29","2026-07-24"],[8,"2026-07-27","2026-08-21"],[9,"2026-08-24","2026-09-25"],[10,"2026-09-28","2026-10-23"],[11,"2026-10-26","2026-11-20"],[12,"2026-11-24","2026-12-25"]];
+function bizCount(a,b){let n=0;const DAY=86400000;for(let d=new Date(a);d<=b;d=new Date(d.getTime()+DAY)){if(isBiz(d))n++;}return n;}
+function fmtMD(iso){const p=iso.split("-");return (+p[1])+"/"+(+p[2]);}
+function renderCalStrip(td){
+  const box=$("calStrip"); if(!box) return;
+  const wd=["日","月","火","水","木","金","土"][td.getDay()];
+  let html=`<span class="cal-badge">今日 <b>${td.getFullYear()}/${td.getMonth()+1}/${td.getDate()}（${wd}）</b></span>`;
+  let cur=null;
+  for(const [m,s,e] of AIDMA2026){const sd=new Date(s+"T00:00:00"),ed=new Date(e+"T00:00:00");if(td>=sd&&td<=ed){cur=[m,sd,ed,s,e];break;}}
+  if(cur){const [m,sd,ed,s,e]=cur;const total=bizCount(sd,ed);const remain=bizCount(td>sd?td:sd,ed);const done=total-remain;const pct=total?Math.round(done/total*100):0;
+    html+=`<span class="cal-badge accent">アイドマ暦 <b>${m}月度</b> ${fmtMD(s)}–${fmtMD(e)}</span>`;
+    html+=`<span class="cal-badge">営業日 <b>${total}日</b>中 <span class="rem">残り${remain}日</span>（経過${done}日）<span class="cal-bar"><i style="width:${pct}%"></i></span></span>`;
+  } else { html+=`<span class="cal-badge">アイドマ暦：月度の切替期間です</span>`; }
+  box.innerHTML=html;
+}
+function render(){const td=new Date();td.setHours(0,0,0,0);renderCalStrip(td);renderKpis(td);renderFocus(td);renderGantt(td);renderTodoPanel(td);}
 function renderKpis(td){const open=TASKS.filter(t=>t.st!=="完了");const cnt=s=>open.filter(t=>t.span===s).length;const box=$("kpis");box.innerHTML="";
   [["数時間以内",cnt("数時間以内"),"now"],["本日中",cnt("本日中"),"now"],["今週中",cnt("今週中"),""],["今月中",cnt("今月中"),""],["濱田さん案件",open.filter(t=>t.cat==="濱田さん案件").length,"hama"]].forEach(([l,v,c])=>box.appendChild(el("div","kpi "+c,`<div class="l">${l}</div><div class="v">${v}<span style="font-size:12px;font-weight:600;color:#9ca3af;"> 件</span></div>`)));
   MEMBERS.forEach(m=>box.appendChild(el("div","kpi",`<div class="l">${m}</div><div class="v" style="color:${ASGNCOLOR[m]}">${open.filter(t=>t.asgn===m).length}<span style="font-size:12px;font-weight:600;color:#9ca3af;"> 件</span></div>`)));}
