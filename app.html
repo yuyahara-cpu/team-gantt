@@ -214,8 +214,9 @@ import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc
 /* ミッション取り込み元: 同一ドメイン上のCSV（CORS回避）。CoworkがシートからこのCSVを更新する */
 const SHEET_CSV_URL = "./missions.csv";
 
-const CATS=["濱田さん案件","デザイン実務","部下2名への指示","広告運用・外部連携","今月度のミッション"];
-const CATCOLOR={"濱田さん案件":"#ef4444","デザイン実務":"#3b82f6","部下2名への指示":"#8b5cf6","広告運用・外部連携":"#f59e0b","今月度のミッション":"#22c55e"};
+const CATS=["濱田さん案件","デザイン実務","広告運用・外部連携","今月度のミッション"];
+// 2026トレンド寄り・インディゴ基調に調和する落ち着いた配色
+const CATCOLOR={"濱田さん案件":"#E8695E","デザイン実務":"#9B8CF5","広告運用・外部連携":"#E3A53C","今月度のミッション":"#23A78E"};
 const SPANS=["数時間以内","本日中","今週中","今月中"]; const PRIS=["高","中","低"]; const STATS=["未着手","進行中","保留","完了"];
 const ASSIGNEES=["原裕也","秋田夕佳","寺澤花帆","その他"];
 const ASGNCOLOR={"原裕也":"#6366f1","秋田夕佳":"#ec4899","寺澤花帆":"#14b8a6","その他":"#94a3b8"};
@@ -262,7 +263,7 @@ function startSync(){
 }
 
 /* ---- render (gantt) ---- */
-function passFilter(t){ if(FILTER.hideDone&&t.st==="完了")return false; if(FILTER.hama&&t.cat!=="濱田さん案件")return false; if(FILTER.asgn!=="all"&&t.asgn!==FILTER.asgn)return false; if(!FILTER.cats.has(t.cat))return false; return true; }
+function passFilter(t){ if(FILTER.hideDone&&t.st==="完了")return false; if(FILTER.hama&&t.cat!=="濱田さん案件")return false; if(FILTER.asgn!=="all"&&t.asgn!==FILTER.asgn)return false; if(CATS.includes(t.cat)&&!FILTER.cats.has(t.cat))return false; return true; }
 function render(){const td=new Date();td.setHours(0,0,0,0);renderKpis(td);renderFocus(td);renderGantt(td);renderTodoPanel(td);}
 function renderKpis(td){const open=TASKS.filter(t=>t.st!=="完了");const cnt=s=>open.filter(t=>t.span===s).length;const box=$("kpis");box.innerHTML="";
   [["数時間以内",cnt("数時間以内"),"now"],["本日中",cnt("本日中"),"now"],["今週中",cnt("今週中"),""],["今月中",cnt("今月中"),""],["濱田さん案件",open.filter(t=>t.cat==="濱田さん案件").length,"hama"]].forEach(([l,v,c])=>box.appendChild(el("div","kpi "+c,`<div class="l">${l}</div><div class="v">${v}<span style="font-size:12px;font-weight:600;color:#9ca3af;"> 件</span></div>`)));
