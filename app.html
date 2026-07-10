@@ -98,7 +98,8 @@
   .main-title{font-size:16px;font-weight:800;letter-spacing:-.02em;}
   .main .sub{margin:3px 0 0;}
   @media(max-width:900px){.shell{flex-direction:column;}.sidebar{width:100%;flex:none;position:static;max-height:none;}.sidebar .kpis{grid-template-columns:repeat(auto-fit,minmax(108px,1fr));}}
-  .fab{position:fixed;right:24px;bottom:24px;height:52px;padding:0 20px;border:none;border-radius:26px;background:linear-gradient(135deg,var(--primary),var(--primary-2));color:#fff;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 12px 26px -6px var(--ring),0 6px 14px rgba(16,24,40,.16);z-index:46;display:inline-flex;align-items:center;gap:8px;transition:.15s;}
+  .focus-compact .focus-item{padding:5px 2px;gap:8px;} .focus-compact .focus-item .name{font-size:12px;} .focus-compact .focus-item .meta{font-size:10px;margin-top:2px;}
+  .fab{position:fixed;left:24px;bottom:24px;height:50px;padding:0 18px;border:none;border-radius:26px;background:linear-gradient(135deg,var(--primary),var(--primary-2));color:#fff;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 12px 26px -6px var(--ring),0 6px 14px rgba(16,24,40,.16);z-index:46;display:inline-flex;align-items:center;gap:8px;transition:.15s;}
   .fab:hover{filter:brightness(1.07);transform:translateY(-2px);} .fab:active{transform:translateY(0);}
   .fab .plus{font-size:20px;line-height:1;margin-top:-1px;}
 </style>
@@ -114,6 +115,10 @@
       <button class="btn primary block" id="addBtn">＋ タスク追加</button>
       <button class="btn block" id="togglePanel">🗒 今日の推奨</button>
       <div class="side-sec">
+        <div class="side-title">直近フォーカス <span class="count">数時間以内・本日中</span></div>
+        <div id="focus" class="focus-compact"></div>
+      </div>
+      <div class="side-sec">
         <div class="side-title">表示</div>
         <div class="side-row"><span class="chip active" id="hideDone">完了を隠す</span><span class="chip" id="fHama">濱田さん案件のみ</span></div>
       </div>
@@ -128,10 +133,6 @@
       <div class="side-sec">
         <div class="side-title">サマリー（残タスク）</div>
         <div class="kpis" id="kpis"></div>
-      </div>
-      <div class="side-sec">
-        <div class="side-title">直近フォーカス <span class="count">数時間以内・本日中</span></div>
-        <div id="focus"></div>
       </div>
     </aside>
     <main class="main">
@@ -280,7 +281,7 @@ function renderFocus(td){const box=$("focus");box.innerHTML="";let list=TASKS.fi
   list.sort((a,b)=>(a.cat==="濱田さん案件"?0:1)-(b.cat==="濱田さん案件"?0:1)||priRank(a.pri)-priRank(b.pri)||spanRank(a.span)-spanRank(b.span));
   if(!list.length){box.appendChild(el("div","focus-empty","直近の未完了タスクはありません ✓"));return;}
   list.forEach(t=>{const item=el("div","focus-item");const cb=el("input");cb.type="checkbox";cb.className="chkbx";cb.onchange=()=>setStatus(t,cb.checked?"完了":"未着手");const body=el("div");body.style.flex="1";const pr=t.pri==="高"?"p-hi":t.pri==="中"?"p-mid":"p-lo";
-    body.innerHTML=`<span class="name">${esc(t.name)}</span><span class="meta"><span class="tag" style="background:${ASGNCOLOR[t.asgn]||'#6b7280'}">${esc(ASGNSHORT[t.asgn]||t.asgn)}</span> <span class="tag" style="background:${CATCOLOR[t.cat]||'#6b7280'}">${esc(t.cat)}</span> <span class="pill span-b">${esc(t.span)}</span> <span class="pill ${pr}">優先:${esc(t.pri)}</span></span>`;
+    body.innerHTML=`<span class="name">${esc(t.name)}</span><span class="meta"><span class="tag" style="background:${ASGNCOLOR[t.asgn]||'#6b7280'}">${esc(ASGNSHORT[t.asgn]||t.asgn)}</span> ${esc(t.span)}</span>`;
     body.querySelector(".name").onclick=()=>openEdit(t);item.appendChild(cb);item.appendChild(body);box.appendChild(item);});}
 function calcCOL(){const sc=$("ganttScroll");const avail=(sc?sc.clientWidth:960)-LABELW-2;return Math.max(30,Math.min(66,Math.floor(avail/14)));}
 function renderGantt(td){const box=$("gantt");box.innerHTML="";const shown=TASKS.filter(passFilter);
