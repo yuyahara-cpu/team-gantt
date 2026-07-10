@@ -97,12 +97,12 @@
   .main{flex:1;min-width:0;padding-top:12px;}
   .main-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;}
   .main-title{font-size:16px;font-weight:800;letter-spacing:-.02em;}
-  .main-top{align-items:flex-start;}
+  .main-top{align-items:flex-start;margin-bottom:6px;}
   .date-hero{display:flex;align-items:center;gap:15px;min-width:0;}
-  .dh-tile{width:84px;height:92px;border-radius:16px;background:#111827;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:0 10px 22px -8px rgba(16,24,40,.4);flex:0 0 auto;}
+  .dh-tile{width:74px;height:78px;border-radius:15px;background:#111827;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;box-shadow:0 10px 22px -8px rgba(16,24,40,.4);flex:0 0 auto;}
   .dh-tile .dh-mo{font-size:11px;font-weight:700;letter-spacing:.05em;opacity:.92;line-height:1;}
-  .dh-tile .dh-day{font-size:46px;font-weight:800;line-height:.95;letter-spacing:-.03em;}
-  .dh-date{font-size:22px!important;}
+  .dh-tile .dh-day{font-size:38px;font-weight:800;line-height:.95;letter-spacing:-.03em;}
+  .dh-date{font-size:20px!important;}
   .cyc-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;} .cyc-mo{font-size:14px;font-weight:800;color:var(--text);} .cyc-range{font-size:11px;color:var(--faint);font-weight:600;}
   .cyc-big{font-size:13px;color:var(--muted);font-weight:600;margin-bottom:7px;} .cyc-big b{font-size:26px;color:#ea580c;font-weight:800;margin:0 3px;letter-spacing:-.02em;}
   .cyc-track{height:8px;border-radius:999px;background:#eceef2;overflow:hidden;} .cyc-track>i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--primary),var(--primary-2));}
@@ -111,7 +111,7 @@
   .dh-date{font-size:18px;font-weight:800;letter-spacing:-.01em;color:var(--text);}
   .dh-date .dh-wd{font-size:13px;font-weight:600;color:var(--muted);margin-left:3px;}
   .dh-badges{display:flex;flex-wrap:wrap;gap:7px;margin-top:7px;}
-  .mt-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:0 0 auto;} .mt-right .sub{margin:0;font-size:11px;}
+  .mt-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:0 0 auto;} .mt-right .sub{margin:0;font-size:11px;} .mt-actions{display:flex;align-items:center;gap:8px;}
   .cal-strip{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin:7px 0 3px;}
   .cal-badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;background:#fff;border:1px solid var(--border);color:var(--muted);box-shadow:var(--shadow-sm);}
   .cal-badge b{color:var(--text);} .cal-badge.accent{background:#eef0fe;border-color:#e2e5fb;color:var(--primary-ink);} .cal-badge .rem{color:#ea580c;font-weight:800;}
@@ -163,8 +163,7 @@
       <div class="main-top">
         <div id="dateHero" class="date-hero"></div>
         <div class="mt-right">
-          <span class="sync-pill" id="syncBanner"><span class="dot"></span>リアルタイム同期中</span>
-          <button class="btn ghost" id="logoutBtn">ログアウト</button>
+          <div class="mt-actions"><span class="sync-pill" id="syncBanner"><span class="dot"></span>リアルタイム同期中</span><button class="btn ghost" id="logoutBtn">ログアウト</button></div>
           <div class="sub" id="updated">読み込み中…</div>
         </div>
       </div>
