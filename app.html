@@ -122,6 +122,9 @@
   .fab{position:fixed;left:24px;bottom:24px;height:50px;padding:0 18px;border:none;border-radius:26px;background:linear-gradient(135deg,var(--primary),var(--primary-2));color:#fff;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 12px 26px -6px var(--ring),0 6px 14px rgba(16,24,40,.16);z-index:46;display:inline-flex;align-items:center;gap:8px;transition:.15s;}
   .fab:hover{filter:brightness(1.07);transform:translateY(-2px);} .fab:active{transform:translateY(0);}
   .fab .plus{font-size:20px;line-height:1;margin-top:-1px;}
+  body.readonly #addBtn, body.readonly #fab, body.readonly #togglePanel{display:none!important;}
+  body.readonly .chkbx{pointer-events:none;opacity:.45;} body.readonly .addsub{display:none!important;}
+  body.readonly .rname{cursor:default!important;} body.readonly .rname:hover{color:inherit!important;text-decoration:none!important;}
 </style>
 </head>
 <body>
@@ -251,7 +254,7 @@ const ASGNCOLOR={"原裕也":"#6366f1","秋田夕佳":"#ec4899","寺澤花帆":"
 const ASGNSHORT={"原裕也":"原","秋田夕佳":"秋田","寺澤花帆":"寺澤","その他":"他"};
 const MEMBERS=["原裕也","秋田夕佳","寺澤花帆"];
 const EMAIL2MEMBER={"yuya_hara@aidma-hd.jp":"原裕也","yuka_akita@aidma-hd.jp":"秋田夕佳","terasawa@aidma-hd.jp":"寺澤花帆"};
-let ME="原裕也"; const LABELW=236;
+let ME="原裕也"; let READONLY=false; const LABELW=236;
 const HOLIDAYS={"2026-07-20":"海の日","2026-08-11":"山の日","2026-09-21":"敬老の日","2026-09-22":"国民の休日","2026-09-23":"秋分の日","2026-10-12":"スポーツの日","2026-11-03":"文化の日","2026-11-23":"勤労感謝の日","2027-01-01":"元日","2027-01-11":"成人の日","2027-02-11":"建国記念の日","2027-02-23":"天皇誕生日","2027-03-21":"春分の日","2027-03-22":"振替休日","2027-04-29":"昭和の日","2027-05-03":"憲法記念日","2027-05-04":"みどりの日","2027-05-05":"こどもの日"};
 function holName(d){return HOLIDAYS[ymd(d)]||null;}
 
@@ -276,7 +279,7 @@ if(!configOk()){ $("setup").style.display="block"; }
 else{
   try{
     const appFb=initializeApp(FIREBASE_CONFIG); auth=getAuth(appFb); db=getFirestore(appFb);
-    onAuthStateChanged(auth,u=>{ if(u){ ME=EMAIL2MEMBER[(u.email||"").toLowerCase()]||"原裕也"; $("login").style.display="none"; startSync(); } else { $("login").style.display="block"; $("app").style.display="none"; } });
+    onAuthStateChanged(auth,u=>{ if(u){ const em=(u.email||"").toLowerCase(); ME=EMAIL2MEMBER[em]||"原裕也"; READONLY=!EMAIL2MEMBER[em]; $("login").style.display="none"; startSync(); } else { $("login").style.display="block"; $("app").style.display="none"; } });
     $("loginBtn").onclick=doLogin;
     $("loginPw").addEventListener("keydown",e=>{ if(e.key==="Enter") doLogin(); });
   }catch(e){ $("setup").style.display="block"; $("setupErr").textContent="初期化に失敗: "+(e.message||e); }
@@ -284,12 +287,13 @@ else{
 async function doLogin(){ const em=$("loginEmail").value.trim(), pw=$("loginPw").value; $("loginErr").textContent=""; if(!em||!pw){$("loginErr").textContent="メールとパスワードを入力してください";return;} $("loginBtn").disabled=true; try{ await signInWithEmailAndPassword(auth,em,pw); }catch(e){ $("loginErr").textContent="ログインに失敗しました（メール/パスワードをご確認ください）"; } finally{ $("loginBtn").disabled=false; } }
 function startSync(){
   $("app").style.display="block"; $("syncBanner").classList.add("show"); initEvents();
-  $("togglePanel").textContent="🗒 "+(ASGNSHORT[ME]||ME)+"の今日の推奨";
+  document.body.classList.toggle("readonly",READONLY);
+  if(READONLY){ $("syncBanner").innerHTML='<span class="dot" style="background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.18)"></span>閲覧専用モード'; }
+  else { $("togglePanel").textContent="🗒 "+(ASGNSHORT[ME]||ME)+"の今日の推奨"; }
   onSnapshot(collection(db,"tasks"),snap=>{
     TASKS=snap.docs.map(d=>{const x=d.data();return {id:d.id,name:x.name||"",cat:x.cat||"デザイン実務",span:x.span||"今月中",pri:x.pri||"中",st:x.st||"未着手",asgn:x.asgn||"原裕也",parent:(x.parent||""),sd:x.sd||"",dd:x.dd||"",memo:x.memo||"",req:x.req||"",srcKey:x.srcKey||"",createdAt:x.createdAt&&x.createdAt.seconds?x.createdAt.seconds:0};});
     TASKS.sort((a,b)=>a.createdAt-b.createdAt);
     render(); $("updated").textContent="最終同期: "+new Date().toLocaleString("ja-JP");
-    maybeImport();
   },err=>{ $("updated").textContent="同期エラー: "+(err.message||err); });
 }
 
@@ -357,15 +361,15 @@ function renderTodoPanel(td){const body=$("spBody");if(!body)return;const t3=$("
 
 /* ---- writes (Firestore) ---- */
 function showSaving(on){$("saving").classList.toggle("show",on);}
-async function setStatus(t,st){showSaving(true);try{await updateDoc(doc(db,"tasks",t.id),{st});}catch(e){alert("保存に失敗: "+(e.message||e));}finally{showSaving(false);}}
+async function setStatus(t,st){if(READONLY)return;showSaving(true);try{await updateDoc(doc(db,"tasks",t.id),{st});}catch(e){alert("保存に失敗: "+(e.message||e));}finally{showSaving(false);}}
 function fillSelect(sel,opts,val){sel.innerHTML="";opts.forEach(o=>{const op=el("option",null,o);op.value=o;if(o===val)op.selected=true;sel.appendChild(op);});}
 function resetModal(){$("mPnote").style.display="none";$("mParent").value="";$("mDelete").style.display="none";}
-function openAdd(){resetModal();$("mTitle").textContent="タスク追加";$("mId").value="";$("mName").value="";fillSelect($("mCat"),CATS,"デザイン実務");fillSelect($("mAsgn"),ASSIGNEES,ME);fillSelect($("mSpan"),SPANS,"本日中");fillSelect($("mPri"),PRIS,"中");fillSelect($("mStat"),STATS,"未着手");$("mReq").value="";$("mStart").value=ymd(new Date());$("mDue").value="";$("mMemo").value="";$("overlay").classList.add("open");}
-function openSub(p){resetModal();$("mTitle").textContent="小項目を追加";$("mId").value="";$("mParent").value=p.id;$("mPnote").style.display="block";$("mPnote").textContent="親：「"+p.name+"」の小項目";$("mName").value="";fillSelect($("mCat"),CATS,p.cat);fillSelect($("mAsgn"),ASSIGNEES,p.asgn||ME);fillSelect($("mSpan"),SPANS,"今週中");fillSelect($("mPri"),PRIS,p.pri||"中");fillSelect($("mStat"),STATS,"未着手");$("mReq").value=p.req||"";$("mStart").value=ymd(new Date());$("mDue").value="";$("mMemo").value="";$("overlay").classList.add("open");}
-function openEdit(t){resetModal();$("mTitle").textContent=t.parent?"小項目を編集":"タスク編集";$("mId").value=t.id;$("mParent").value=t.parent||"";if(t.parent){const p=TASKS.find(x=>x.id===t.parent);if(p){$("mPnote").style.display="block";$("mPnote").textContent="親：「"+p.name+"」の小項目";}}$("mName").value=t.name||"";fillSelect($("mCat"),CATS,t.cat);fillSelect($("mAsgn"),ASSIGNEES,t.asgn||ME);fillSelect($("mSpan"),SPANS,t.span);fillSelect($("mPri"),PRIS,t.pri||"中");fillSelect($("mStat"),STATS,t.st||"未着手");$("mReq").value=t.req||"";$("mStart").value=(t.sd||"").slice(0,10);$("mDue").value=(t.dd||"").slice(0,10);$("mMemo").value=t.memo||"";$("mDelete").style.display="inline-block";$("overlay").classList.add("open");}
+function openAdd(){if(READONLY)return;resetModal();$("mTitle").textContent="タスク追加";$("mId").value="";$("mName").value="";fillSelect($("mCat"),CATS,"デザイン実務");fillSelect($("mAsgn"),ASSIGNEES,ME);fillSelect($("mSpan"),SPANS,"本日中");fillSelect($("mPri"),PRIS,"中");fillSelect($("mStat"),STATS,"未着手");$("mReq").value="";$("mStart").value=ymd(new Date());$("mDue").value="";$("mMemo").value="";$("overlay").classList.add("open");}
+function openSub(p){if(READONLY)return;resetModal();$("mTitle").textContent="小項目を追加";$("mId").value="";$("mParent").value=p.id;$("mPnote").style.display="block";$("mPnote").textContent="親：「"+p.name+"」の小項目";$("mName").value="";fillSelect($("mCat"),CATS,p.cat);fillSelect($("mAsgn"),ASSIGNEES,p.asgn||ME);fillSelect($("mSpan"),SPANS,"今週中");fillSelect($("mPri"),PRIS,p.pri||"中");fillSelect($("mStat"),STATS,"未着手");$("mReq").value=p.req||"";$("mStart").value=ymd(new Date());$("mDue").value="";$("mMemo").value="";$("overlay").classList.add("open");}
+function openEdit(t){if(READONLY)return;resetModal();$("mTitle").textContent=t.parent?"小項目を編集":"タスク編集";$("mId").value=t.id;$("mParent").value=t.parent||"";if(t.parent){const p=TASKS.find(x=>x.id===t.parent);if(p){$("mPnote").style.display="block";$("mPnote").textContent="親：「"+p.name+"」の小項目";}}$("mName").value=t.name||"";fillSelect($("mCat"),CATS,t.cat);fillSelect($("mAsgn"),ASSIGNEES,t.asgn||ME);fillSelect($("mSpan"),SPANS,t.span);fillSelect($("mPri"),PRIS,t.pri||"中");fillSelect($("mStat"),STATS,t.st||"未着手");$("mReq").value=t.req||"";$("mStart").value=(t.sd||"").slice(0,10);$("mDue").value=(t.dd||"").slice(0,10);$("mMemo").value=t.memo||"";$("mDelete").style.display="inline-block";$("overlay").classList.add("open");}
 function closeModal(){$("overlay").classList.remove("open");}
-async function saveModal(){const name=$("mName").value.trim();if(!name){alert("タスク名を入力してください");return;}const data={name,cat:$("mCat").value,asgn:$("mAsgn").value,span:$("mSpan").value,pri:$("mPri").value,st:$("mStat").value,req:$("mReq").value.trim(),memo:$("mMemo").value.trim(),parent:$("mParent").value||"",sd:$("mStart").value||"",dd:$("mDue").value||""};const id=$("mId").value;showSaving(true);closeModal();try{if(id){await updateDoc(doc(db,"tasks",id),data);}else{data.createdAt=serverTimestamp();await addDoc(collection(db,"tasks"),data);}}catch(e){alert("保存に失敗: "+(e.message||e));}finally{showSaving(false);}}
-async function delTask(){const id=$("mId").value;if(!id)return;if(!confirm("このタスクを削除しますか？"))return;showSaving(true);closeModal();try{await deleteDoc(doc(db,"tasks",id));}catch(e){alert("削除に失敗: "+(e.message||e));}finally{showSaving(false);}}
+async function saveModal(){if(READONLY)return;const name=$("mName").value.trim();if(!name){alert("タスク名を入力してください");return;}const data={name,cat:$("mCat").value,asgn:$("mAsgn").value,span:$("mSpan").value,pri:$("mPri").value,st:$("mStat").value,req:$("mReq").value.trim(),memo:$("mMemo").value.trim(),parent:$("mParent").value||"",sd:$("mStart").value||"",dd:$("mDue").value||""};const id=$("mId").value;showSaving(true);closeModal();try{if(id){await updateDoc(doc(db,"tasks",id),data);}else{data.createdAt=serverTimestamp();await addDoc(collection(db,"tasks"),data);}}catch(e){alert("保存に失敗: "+(e.message||e));}finally{showSaving(false);}}
+async function delTask(){if(READONLY)return;const id=$("mId").value;if(!id)return;if(!confirm("このタスクを削除しますか？"))return;showSaving(true);closeModal();try{await deleteDoc(doc(db,"tasks",id));}catch(e){alert("削除に失敗: "+(e.message||e));}finally{showSaving(false);}}
 
 /* ---- 方式A: 公開CSV(ミッション用タブ)から自動取り込み ---- */
 let importedOnce=false;
