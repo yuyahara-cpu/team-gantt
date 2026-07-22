@@ -254,7 +254,7 @@ const ASGNCOLOR={"原裕也":"#6366f1","秋田夕佳":"#ec4899","寺澤花帆":"
 const ASGNSHORT={"原裕也":"原","秋田夕佳":"秋田","寺澤花帆":"寺澤","その他":"他"};
 const MEMBERS=["原裕也","秋田夕佳","寺澤花帆"];
 const EMAIL2MEMBER={"yuya_hara@aidma-hd.jp":"原裕也","yuka_akita@aidma-hd.jp":"秋田夕佳","terasawa@aidma-hd.jp":"寺澤花帆"};
-let ME="原裕也"; let READONLY=false; const LABELW=236;
+let ME="原裕也"; let READONLY=false; let MYEMAIL=""; const LABELW=236;
 const HOLIDAYS={"2026-07-20":"海の日","2026-08-11":"山の日","2026-09-21":"敬老の日","2026-09-22":"国民の休日","2026-09-23":"秋分の日","2026-10-12":"スポーツの日","2026-11-03":"文化の日","2026-11-23":"勤労感謝の日","2027-01-01":"元日","2027-01-11":"成人の日","2027-02-11":"建国記念の日","2027-02-23":"天皇誕生日","2027-03-21":"春分の日","2027-03-22":"振替休日","2027-04-29":"昭和の日","2027-05-03":"憲法記念日","2027-05-04":"みどりの日","2027-05-05":"こどもの日"};
 function holName(d){return HOLIDAYS[ymd(d)]||null;}
 
@@ -279,7 +279,7 @@ if(!configOk()){ $("setup").style.display="block"; }
 else{
   try{
     const appFb=initializeApp(FIREBASE_CONFIG); auth=getAuth(appFb); db=getFirestore(appFb);
-    onAuthStateChanged(auth,u=>{ if(u){ const em=(u.email||"").toLowerCase(); ME=EMAIL2MEMBER[em]||"原裕也"; READONLY=!EMAIL2MEMBER[em]; $("login").style.display="none"; startSync(); } else { $("login").style.display="block"; $("app").style.display="none"; } });
+    onAuthStateChanged(auth,u=>{ if(u){ const em=(u.email||"").trim().toLowerCase(); MYEMAIL=em; ME=EMAIL2MEMBER[em]||"原裕也"; READONLY=!EMAIL2MEMBER[em]; console.log("[auth] login email=",em,"member=",!!EMAIL2MEMBER[em]); $("login").style.display="none"; startSync(); } else { $("login").style.display="block"; $("app").style.display="none"; } });
     $("loginBtn").onclick=doLogin;
     $("loginPw").addEventListener("keydown",e=>{ if(e.key==="Enter") doLogin(); });
   }catch(e){ $("setup").style.display="block"; $("setupErr").textContent="初期化に失敗: "+(e.message||e); }
@@ -288,8 +288,8 @@ async function doLogin(){ const em=$("loginEmail").value.trim(), pw=$("loginPw")
 function startSync(){
   $("app").style.display="block"; $("syncBanner").classList.add("show"); initEvents();
   document.body.classList.toggle("readonly",READONLY);
-  if(READONLY){ $("syncBanner").innerHTML='<span class="dot" style="background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.18)"></span>閲覧専用モード'; }
-  else { $("togglePanel").textContent="🗒 "+(ASGNSHORT[ME]||ME)+"の今日の推奨"; }
+  if(READONLY){ $("syncBanner").innerHTML='<span class="dot" style="background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.18)"></span>閲覧専用（'+esc(MYEMAIL||"不明")+'）'; }
+  else { $("togglePanel").textContent="🗒 "+(ASGNSHORT[ME]||ME)+"の今日の推奨"; $("syncBanner").innerHTML='<span class="dot"></span>編集可 ・ '+esc(ME); }
   onSnapshot(collection(db,"tasks"),snap=>{
     TASKS=snap.docs.map(d=>{const x=d.data();return {id:d.id,name:x.name||"",cat:x.cat||"デザイン実務",span:x.span||"今月中",pri:x.pri||"中",st:x.st||"未着手",asgn:x.asgn||"原裕也",parent:(x.parent||""),sd:x.sd||"",dd:x.dd||"",memo:x.memo||"",req:x.req||"",srcKey:x.srcKey||"",createdAt:x.createdAt&&x.createdAt.seconds?x.createdAt.seconds:0};});
     TASKS.sort((a,b)=>a.createdAt-b.createdAt);
