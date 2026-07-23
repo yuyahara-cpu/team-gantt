@@ -143,6 +143,8 @@
   .mcard .mc-bar{height:7px;border-radius:999px;background:#eceef2;overflow:hidden;} .mcard .mc-bar>i{display:block;height:100%;border-radius:999px;}
   .mcard .mc-sub{display:flex;justify-content:space-between;font-size:10px;color:var(--faint);margin-top:8px;}
   .modal .mission-block{border-top:1px dashed var(--border);margin-top:8px;padding-top:12px;}
+  .goalchip{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:800;white-space:nowrap;}
+  .goalbar{display:inline-block;width:42px;height:5px;border-radius:999px;background:#eceef2;overflow:hidden;flex:0 0 auto;} .goalbar>i{display:block;height:100%;border-radius:999px;}
   @media(max-width:900px){.shell{flex-direction:column;}.sidebar{width:100%;flex:none;position:static;max-height:none;}.sidebar .kpis{grid-template-columns:repeat(auto-fit,minmax(108px,1fr));}}
   .focus-compact .focus-item{padding:5px 2px;gap:8px;} .focus-compact .focus-item .name{font-size:12px;} .focus-compact .focus-item .meta{font-size:10px;margin-top:2px;}
   .fab{position:fixed;left:24px;bottom:24px;height:50px;padding:0 18px;border:none;border-radius:26px;background:linear-gradient(135deg,var(--primary),var(--primary-2));color:#fff;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 12px 26px -6px var(--ring),0 6px 14px rgba(16,24,40,.16);z-index:46;display:inline-flex;align-items:center;gap:8px;transition:.15s;}
@@ -196,10 +198,9 @@
           <div class="sub" id="updated">読み込み中…</div>
         </div>
       </div>
-      <div class="viewtabs"><button class="vtab active" id="vtGantt">ガント</button><button class="vtab" id="vtList">リスト</button><button class="vtab" id="vtBoard">ミッション</button></div>
+      <div class="viewtabs"><button class="vtab active" id="vtGantt">ガント</button><button class="vtab" id="vtList">リスト</button></div>
       <div class="gantt-scroll" id="ganttScroll"><div class="gantt" id="gantt"></div></div>
       <div id="listView" style="display:none;"></div>
-      <div id="boardView" style="display:none;"></div>
     </main>
   </div>
 </div>
@@ -239,16 +240,16 @@ service cloud.firestore {
 <div class="overlay" id="overlay"><div class="modal">
   <h3 id="mTitle">タスク追加</h3><div class="pnote" id="mPnote" style="display:none;"></div>
   <input type="hidden" id="mId"><input type="hidden" id="mParent">
-  <div class="row2"><div class="field"><label>種別</label><select id="mKind"></select></div><div class="field"><label>タスク名／ミッション名</label><input id="mName" placeholder="例：LPデザイン初稿"></div></div>
+  <div class="field"><label>タスク名</label><input id="mName" placeholder="例：LPデザイン初稿"></div>
   <div class="row2"><div class="field"><label>カテゴリ</label><select id="mCat"></select></div><div class="field"><label>担当者</label><select id="mAsgn"></select></div></div>
   <div class="row2"><div class="field"><label>スパン</label><select id="mSpan"></select></div><div class="field"><label>優先度</label><select id="mPri"></select></div></div>
   <div class="row2"><div class="field"><label>ステータス</label><select id="mStat"></select></div><div class="field"><label>依頼者</label><input id="mReq"></div></div>
   <div class="row2"><div class="field"><label>開始日（任意）</label><input id="mStart" type="date"></div><div class="field"><label>期限（任意）</label><input id="mDue" type="date"></div></div>
-  <div class="mission-block" id="mMission" style="display:none;">
+  <div class="mission-block" id="mMission">
+    <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:600;">数値目標（任意・入れると進捗バーが出ます）</label>
     <div class="row2"><div class="field"><label>指標名</label><input id="mMetric" placeholder="例：アポCPA"></div><div class="field"><label>単位</label><select id="mUnit"></select></div></div>
     <div class="row2"><div class="field"><label>現状値</label><input id="mCurrent" type="number" step="any"></div><div class="field"><label>目標値</label><input id="mTarget" type="number" step="any"></div></div>
-    <div class="row2"><div class="field"><label>良い方向</label><select id="mBetter"></select></div><div class="field"><label>現状値の出典/日付</label><input id="mBaseline" placeholder="例：7/22時点"></div></div>
-    <div class="field"><label>定性（狙いの一文）</label><input id="mQual" placeholder="例：惰性の量産から脱却しネイティブ動画の設計理解を深める"></div>
+    <div class="field"><label>良い方向</label><select id="mBetter"></select></div>
   </div>
   <div class="field"><label>メモ</label><textarea id="mMemo"></textarea></div>
   <div class="modal-actions"><div class="left"><button class="btn" id="mDup" style="display:none;">複製</button><button class="btn" id="mDelete" style="color:#b91c1c;border-color:#fca5a5;display:none;">削除</button></div><div class="left"><button class="btn" id="mCancel">キャンセル</button><button class="btn primary" id="mSave">保存</button></div></div>
@@ -355,49 +356,19 @@ function renderCalStrip(td){
   } else { cc.innerHTML=`<div class="cyc-sub" style="text-align:left">月度の切替期間です</div>`; }
 }
 function fmtNum(n,unit){if(n==null||isNaN(n))return"-";const s=Number(n).toLocaleString("ja-JP");if(unit==="¥")return"¥"+s;if(unit==="%")return s+"%";if(unit==="件")return s+"件";return s+(unit||"");}
-function missionProgress(m){
-  const kids=TASKS.filter(t=>t.parent===m.id);const total=kids.length;const done=kids.filter(t=>t.st==="完了").length;
-  const hasT=(m.target!=null&&m.current!=null&&!isNaN(m.target)&&!isNaN(m.current));
-  let pct=0,state="track",txt="";
-  if(hasT){const cur=Number(m.current),tg=Number(m.target);
-    txt=(m.metricLabel?m.metricLabel+" ":"")+fmtNum(cur,m.unit)+" → "+fmtNum(tg,m.unit);
-    if(m.better==="high"){pct=tg?Math.max(0,Math.min(1,cur/tg)):0;state=cur>=tg?"done":"behind";}
-    else{if(cur<=tg){pct=1;state="done";}else{pct=cur?Math.max(0,Math.min(1,tg/cur)):0;state="behind";txt+="（目標まで -"+fmtNum(cur-tg,m.unit)+"）";}}
-    if(state==="behind"&&pct>=0.85)state="track";
-  } else {pct=total?done/total:0;txt="サブタスク "+done+"/"+total;state=(total&&done>=total)?"done":"track";}
-  if(m.st==="完了"){state="done";pct=1;}
-  const color=state==="done"?"#10b981":state==="behind"?"#f97316":"#6366f1";
-  return {pct,done,total,txt,state,color,hasMetric:hasT};
-}
 let VIEW="gantt";
 function switchView(v){VIEW=v;
-  $("vtGantt").classList.toggle("active",v==="gantt");$("vtList").classList.toggle("active",v==="list");$("vtBoard").classList.toggle("active",v==="board");
-  $("ganttScroll").style.display=v==="gantt"?"":"none";$("listView").style.display=v==="list"?"":"none";$("boardView").style.display=v==="board"?"":"none";
+  $("vtGantt").classList.toggle("active",v==="gantt");$("vtList").classList.toggle("active",v==="list");
+  $("ganttScroll").style.display=v==="gantt"?"":"none";$("listView").style.display=v==="list"?"":"none";
   render();}
-function renderBoard(td){
-  const box=$("boardView");box.innerHTML="";
-  const missions=TASKS.filter(t=>t.kind==="ミッション"&&passFilter(t));
-  if(!missions.length){box.innerHTML='<div class="g-empty">ミッションがありません。「＋タスク追加」で種別「ミッション」を選ぶと登録できます。</div>';return;}
-  const wrap=el("div","board");
-  const ORDER=["原裕也","秋田夕佳","寺澤花帆","その他"];const lanes=ORDER.slice();missions.forEach(m=>{if(!lanes.includes(m.asgn))lanes.push(m.asgn);});
-  lanes.forEach(person=>{
-    const ms=missions.filter(m=>m.asgn===person);if(!ms.length)return;
-    ms.sort((a,b)=>priRank(a.pri)-priRank(b.pri));
-    const col=ASGNCOLOR[person]||"#94a3b8";
-    const sec=el("div","bd-sec");
-    sec.appendChild(el("div","bd-head",`<span class="tag" style="background:${col}">${esc(person)}</span> <span style="color:#9ca3af;font-weight:600;font-size:11px;">${ms.length}ミッション</span>`));
-    const grid=el("div","bd-grid");
-    ms.forEach(m=>{const p=missionProgress(m);const due=deriveEnd(m,td);const bl=bizLeft(td,due);const pr=m.pri==="高"?"p-hi":m.pri==="中"?"p-mid":"p-lo";
-      const card=el("div","mcard");card.style.borderLeftColor=p.color;
-      card.innerHTML=`<div class="mc-top"><span class="pill ${pr}">${esc(m.pri||'-')}</span><span class="mc-name">${esc(m.name)}</span></div>`+
-        (m.qual?`<div class="mc-qual">${esc(m.qual)}</div>`:"")+
-        (p.hasMetric?`<div class="mc-metric" style="color:${p.color}">${esc(p.txt)}</div>`:"")+
-        `<div class="mc-bar"><i style="width:${Math.round(p.pct*100)}%;background:${p.color}"></i></div>`+
-        `<div class="mc-sub"><span>サブタスク ${p.done}/${p.total}${m.baselineNote?(' ・ '+esc(m.baselineNote)):''}</span><span>${m.st==='完了'?'完了':'残り'+bl+'営業日'}</span></div>`;
-      card.onclick=()=>openEdit(m);grid.appendChild(card);});
-    sec.appendChild(grid);wrap.appendChild(sec);
-  });
-  box.appendChild(wrap);
+function goalOf(t){
+  if(t.target==null||t.current==null||isNaN(t.target)||isNaN(t.current))return {has:false};
+  const cur=Number(t.current),tg=Number(t.target);let pct,state;
+  if(t.better==="high"){pct=tg?Math.max(0,Math.min(1,cur/tg)):0;state=cur>=tg?"done":"behind";}
+  else{if(cur<=tg){pct=1;state="done";}else{pct=cur?Math.max(0,Math.min(1,tg/cur)):0;state="behind";}}
+  if(state==="behind"&&pct>=0.85)state="track";
+  const color=state==="done"?"#10b981":state==="behind"?"#f97316":"#6366f1";
+  return {has:true,pct,color,txt:(t.metricLabel?t.metricLabel+" ":"")+fmtNum(cur,t.unit)+"→"+fmtNum(tg,t.unit)};
 }
 function renderList(td){
   const box=$("listView");box.innerHTML="";
@@ -415,7 +386,8 @@ function renderList(td){
     nm.innerHTML=`<span class="lvname"${t.st==='完了'?' style="text-decoration:line-through;color:#94a3b8"':''}>${isSub?'└ ':''}${esc(t.name)}</span>`;
     nm.querySelector(".lvname").onclick=()=>openEdit(t);row.appendChild(nm);
     const meta=el("div","lv-meta");
-    meta.innerHTML=`<span class="catchip" style="color:${cc};border-color:${cc}55;background:${cc}12">${esc(t.cat)}</span><span class="pill span-b">${esc(t.span)}</span><span class="pill" style="background:${sc}1f;color:${sc}">${esc(t.st)}</span><span class="lv-due${over?' over':''}">〆${ymd(due).slice(5)}</span>`;
+    const g=goalOf(t);
+    meta.innerHTML=(g.has?`<span class="goalchip" style="color:${g.color}"><span class="goalbar"><i style="width:${Math.round(g.pct*100)}%;background:${g.color}"></i></span>${esc(g.txt)}</span>`:"")+`<span class="catchip" style="color:${cc};border-color:${cc}55;background:${cc}12">${esc(t.cat)}</span><span class="pill span-b">${esc(t.span)}</span><span class="pill" style="background:${sc}1f;color:${sc}">${esc(t.st)}</span><span class="lv-due${over?' over':''}">〆${ymd(due).slice(5)}</span>`;
     row.appendChild(meta);wrap.appendChild(row);
   };
   lanes.forEach(person=>{
@@ -429,7 +401,7 @@ function renderList(td){
   });
   box.appendChild(wrap);
 }
-function render(){const td=new Date();td.setHours(0,0,0,0);renderCalStrip(td);renderKpis(td);renderFocus(td);if(VIEW==="list"){renderList(td);}else if(VIEW==="board"){renderBoard(td);}else{renderGantt(td);}renderTodoPanel(td);}
+function render(){const td=new Date();td.setHours(0,0,0,0);renderCalStrip(td);renderKpis(td);renderFocus(td);if(VIEW==="list"){renderList(td);}else{renderGantt(td);}renderTodoPanel(td);}
 function renderKpis(td){const open=TASKS.filter(t=>t.st!=="完了");const cnt=s=>open.filter(t=>t.span===s).length;const box=$("kpis");box.innerHTML="";
   [["数時間以内",cnt("数時間以内"),"now"],["本日中",cnt("本日中"),"now"],["今週中",cnt("今週中"),""],["今月中",cnt("今月中"),""],["濱田さん案件",open.filter(t=>t.cat==="濱田さん案件").length,"hama"]].forEach(([l,v,c])=>box.appendChild(el("div","kpi "+c,`<div class="l">${l}</div><div class="v">${v}<span style="font-size:12px;font-weight:600;color:#9ca3af;"> 件</span></div>`)));
   MEMBERS.forEach(m=>box.appendChild(el("div","kpi",`<div class="l">${m}</div><div class="v" style="color:${ASGNCOLOR[m]}">${open.filter(t=>t.asgn===m).length}<span style="font-size:12px;font-weight:600;color:#9ca3af;"> 件</span></div>`)));}
@@ -453,7 +425,7 @@ function renderGantt(td){const box=$("gantt");const __sc0=$("ganttScroll");__sav
   for(let i=0;i<totalDays;i++){const d=new Date(minS.getTime()+i*DAY);const hn=holName(d);const cell=el("div","celln"+((d.getDay()===0||d.getDay()===6)?" we":"")+(hn?" hol":"")+(ymd(d)===ymd(td)?" today":""),""+d.getDate());cell.style.width=COL+"px";if(hn)cell.title=hn;hdTl.appendChild(cell);}
   hd.appendChild(hdTl);box.appendChild(hd);
   const mkTrack=()=>{const tr=el("div","track");tr.style.width=tlW+"px";for(let i=0;i<totalDays;i++){const d=new Date(minS.getTime()+i*DAY);const hn=holName(d);const g=el("div","gline"+((d.getDay()===0||d.getDay()===6)?" we":"")+(hn?" hol":""));g.style.left=(i*COL)+"px";g.style.width=COL+"px";tr.appendChild(g);}if(td>=minS&&td<=maxE){const t=el("div","todayline");t.style.left=(posX(td)+COL/2)+"px";tr.appendChild(t);}return tr;};
-  const taskRow=(t,isSub)=>{const row=el("div","grow trow"+(isSub?" sub":""));const lc=el("div","lc");const cb=el("input");cb.type="checkbox";cb.className="chkbx";cb.checked=(t.st==="完了");cb.title="完了";cb.onchange=()=>setStatus(t,cb.checked?"完了":"未着手");lc.appendChild(cb);if(isSub)lc.appendChild(el("span","sub-mark","└"));const pc=t.pri==="高"?"#ef4444":t.pri==="中"?"#f59e0b":"transparent";lc.style.borderLeft="3px solid "+pc;lc.title="優先度:"+(t.pri||"-");const nm=el("div","nm");const cc=CATCOLOR[t.cat]||'#94a3b8';const sc=t.st==='完了'?'#10b981':t.st==='進行中'?'#4f46e5':t.st==='保留'?'#b45309':'#94a3b8';nm.innerHTML=`<span class="rname" title="${esc(t.name)}">${esc(t.name)}</span><span class="rmeta"><span class="catchip" style="color:${cc};border-color:${cc}55;background:${cc}12">${esc(t.cat)}</span>${esc(t.span)} ・ <span style="color:${sc}">${esc(t.st)}</span></span>`;nm.querySelector(".rname").onclick=()=>openEdit(t);lc.appendChild(nm);if(!isSub){const ab=el("button","addsub");ab.title="小項目を追加";ab.innerHTML='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3 V8 a2 2 0 0 0 2 2 H8.5"/><path d="M12 7.6 V12.4"/><path d="M9.6 10 H14.4"/></svg>';ab.onclick=(ev)=>{ev.stopPropagation();openSub(t);};lc.appendChild(ab);}const track=mkTrack();const s=deriveStart(t,td),e=deriveEnd(t,td);let left=posX(s),w=(Math.round((e-s)/DAY)+1)*COL;if(w<COL*0.9)w=Math.round(COL*0.9);const bar=el("div","bar"+(isSub?" sub":"")+(t.st==="完了"?" done":"")+((e<td&&t.st!=="完了")?" overdue":""));bar.style.left=left+"px";bar.style.width=w+"px";bar.style.background=ASGNCOLOR[t.asgn]||"#6b7280";bar.title=t.name;bar.textContent=t.name;bar.onclick=()=>openEdit(t);track.appendChild(bar);row.appendChild(lc);row.appendChild(track);return row;};
+  const taskRow=(t,isSub)=>{const row=el("div","grow trow"+(isSub?" sub":""));const lc=el("div","lc");const cb=el("input");cb.type="checkbox";cb.className="chkbx";cb.checked=(t.st==="完了");cb.title="完了";cb.onchange=()=>setStatus(t,cb.checked?"完了":"未着手");lc.appendChild(cb);if(isSub)lc.appendChild(el("span","sub-mark","└"));const pc=t.pri==="高"?"#ef4444":t.pri==="中"?"#f59e0b":"transparent";lc.style.borderLeft="3px solid "+pc;lc.title="優先度:"+(t.pri||"-");const nm=el("div","nm");const cc=CATCOLOR[t.cat]||'#94a3b8';const sc=t.st==='完了'?'#10b981':t.st==='進行中'?'#4f46e5':t.st==='保留'?'#b45309':'#94a3b8';const g=goalOf(t);nm.innerHTML=`<span class="rname" title="${esc(t.name)}">${esc(t.name)}</span><span class="rmeta"><span class="catchip" style="color:${cc};border-color:${cc}55;background:${cc}12">${esc(t.cat)}</span>${esc(t.span)} ・ <span style="color:${sc}">${esc(t.st)}</span>${g.has?(' ・ <b style="color:'+g.color+'">'+esc(g.txt)+'</b>'):''}</span>`;nm.querySelector(".rname").onclick=()=>openEdit(t);lc.appendChild(nm);if(!isSub){const ab=el("button","addsub");ab.title="小項目を追加";ab.innerHTML='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3 V8 a2 2 0 0 0 2 2 H8.5"/><path d="M12 7.6 V12.4"/><path d="M9.6 10 H14.4"/></svg>';ab.onclick=(ev)=>{ev.stopPropagation();openSub(t);};lc.appendChild(ab);}const track=mkTrack();const s=deriveStart(t,td),e=deriveEnd(t,td);let left=posX(s),w=(Math.round((e-s)/DAY)+1)*COL;if(w<COL*0.9)w=Math.round(COL*0.9);const bar=el("div","bar"+(isSub?" sub":"")+(t.st==="完了"?" done":"")+((e<td&&t.st!=="完了")?" overdue":""));bar.style.left=left+"px";bar.style.width=w+"px";bar.style.background=ASGNCOLOR[t.asgn]||"#6b7280";bar.title=t.name;bar.textContent=t.name;bar.onclick=()=>openEdit(t);track.appendChild(bar);row.appendChild(lc);row.appendChild(track);return row;};
   const childrenOf={};shown.forEach(t=>{if(t.parent){(childrenOf[t.parent]=childrenOf[t.parent]||[]).push(t);}});
   const ORDER=["原裕也","秋田夕佳","寺澤花帆","その他"];
   const seen=new Set();
@@ -476,18 +448,13 @@ function showSaving(on){$("saving").classList.toggle("show",on);}
 async function setStatus(t,st){if(READONLY)return;showSaving(true);try{await updateDoc(doc(db,"tasks",t.id),{st});}catch(e){alert("保存に失敗: "+(e.message||e));}finally{showSaving(false);}}
 function fillSelect(sel,opts,val){sel.innerHTML="";opts.forEach(o=>{const op=el("option",null,o);op.value=o;if(o===val)op.selected=true;sel.appendChild(op);});}
 function resetModal(){$("mPnote").style.display="none";$("mParent").value="";$("mDelete").style.display="none";$("mDup").style.display="none";}
-function toggleMission(){$("mMission").style.display=$("mKind").value==="ミッション"?"block":"none";}
-function collectMission(){const kind=$("mKind").value;if(kind!=="ミッション")return {kind:"タスク",metricLabel:"",current:null,target:null,unit:"",better:"low",baselineNote:"",qual:""};const cv=$("mCurrent").value,tv=$("mTarget").value;return {kind:"ミッション",metricLabel:$("mMetric").value.trim(),current:cv===""?null:Number(cv),target:tv===""?null:Number(tv),unit:$("mUnit").value,better:$("mBetter").value,baselineNote:$("mBaseline").value.trim(),qual:$("mQual").value.trim()};}
+function collectMission(){const cv=$("mCurrent").value,tv=$("mTarget").value;return {metricLabel:$("mMetric").value.trim(),current:cv===""?null:Number(cv),target:tv===""?null:Number(tv),unit:$("mUnit").value,better:$("mBetter").value};}
 function fillMissionInputs(t){
-  fillSelect($("mKind"),["タスク","ミッション"],(t&&t.kind==="ミッション")?"ミッション":"タスク");
   fillSelect($("mUnit"),["","¥","件","%"],t?(t.unit||""):"");
-  const bs=$("mBetter");bs.innerHTML="";[["low","低い方が良い"],["high","高い方が良い"]].forEach(([v,l])=>{const o=el("option",null,l);o.value=v;if((t&&t.better===v)||(!t&&v==="low")||(t&&!t.better&&v==="low"))o.selected=true;bs.appendChild(o);});
+  const bs=$("mBetter");bs.innerHTML="";[["low","低い方が良い"],["high","高い方が良い"]].forEach(([v,l])=>{const o=el("option",null,l);o.value=v;if((t&&t.better===v)||((!t||!t.better)&&v==="low"))o.selected=true;bs.appendChild(o);});
   $("mMetric").value=t?(t.metricLabel||""):"";
   $("mCurrent").value=(t&&t.current!=null)?t.current:"";
   $("mTarget").value=(t&&t.target!=null)?t.target:"";
-  $("mBaseline").value=t?(t.baselineNote||""):"";
-  $("mQual").value=t?(t.qual||""):"";
-  toggleMission();
 }
 function openAdd(){if(READONLY)return;resetModal();$("mTitle").textContent="タスク追加";$("mId").value="";$("mName").value="";fillSelect($("mCat"),CATS,"デザイン実務");fillSelect($("mAsgn"),ASSIGNEES,ME);fillSelect($("mSpan"),SPANS,"本日中");fillSelect($("mPri"),PRIS,"中");fillSelect($("mStat"),STATS,"未着手");$("mReq").value="";$("mStart").value=ymd(new Date());$("mDue").value="";$("mMemo").value="";fillMissionInputs(null);$("overlay").classList.add("open");}
 function openSub(p){if(READONLY)return;resetModal();$("mTitle").textContent="小項目を追加";$("mId").value="";$("mParent").value=p.id;$("mPnote").style.display="block";$("mPnote").textContent="親：「"+p.name+"」の小項目";$("mName").value="";fillSelect($("mCat"),CATS,p.cat);fillSelect($("mAsgn"),ASSIGNEES,p.asgn||ME);fillSelect($("mSpan"),SPANS,"今週中");fillSelect($("mPri"),PRIS,p.pri||"中");fillSelect($("mStat"),STATS,"未着手");$("mReq").value=p.req||"";$("mStart").value=ymd(new Date());$("mDue").value="";$("mMemo").value="";fillMissionInputs(null);$("overlay").classList.add("open");}
@@ -536,7 +503,7 @@ async function importFromSheet(){
 function buildCatChips(){const box=$("catChips");box.innerHTML="";CATS.forEach(c=>{const ch=el("span","chip",c);if(FILTER.cats.has(c)){ch.style.background=CATCOLOR[c];ch.style.borderColor=CATCOLOR[c];ch.style.color="#fff";}ch.onclick=()=>{if(FILTER.cats.has(c)){FILTER.cats.delete(c);ch.style.background="#fff";ch.style.color="#1f2430";}else{FILTER.cats.add(c);ch.style.background=CATCOLOR[c];ch.style.color="#fff";}render();};box.appendChild(ch);});}
 function buildAsgnChips(){const box=$("asgnChips");box.innerHTML="";[["all","全員","#111827"]].concat(MEMBERS.map(m=>[m,ASGNSHORT[m],ASGNCOLOR[m]])).forEach(([val,label,color])=>{const ch=el("span","chip"+(FILTER.asgn===val?" active":""),label);if(FILTER.asgn===val){ch.style.background=color;ch.style.borderColor=color;ch.style.color="#fff";}ch.onclick=()=>{FILTER.asgn=val;buildAsgnChips();render();};box.appendChild(ch);});}
 let inited=false;
-function initEvents(){if(inited)return;inited=true;$("addBtn").onclick=openAdd;$("fab").onclick=openAdd;$("logoutBtn").onclick=()=>{if(auth)signOut(auth);};$("togglePanel").onclick=()=>$("sidePanel").classList.toggle("open");$("spClose").onclick=()=>$("sidePanel").classList.remove("open");$("mCancel").onclick=closeModal;$("mSave").onclick=saveModal;$("mDelete").onclick=delTask;$("mDup").onclick=dupTask;$("mKind").onchange=toggleMission;$("vtGantt").onclick=()=>switchView("gantt");$("vtList").onclick=()=>switchView("list");$("vtBoard").onclick=()=>switchView("board");$("overlay").onclick=e=>{if(e.target===$("overlay"))closeModal();};$("fHama").onclick=()=>{FILTER.hama=!FILTER.hama;$("fHama").classList.toggle("active",FILTER.hama);render();};$("hideDone").onclick=()=>{FILTER.hideDone=!FILTER.hideDone;$("hideDone").classList.toggle("active",FILTER.hideDone);render();};buildCatChips();buildAsgnChips();let rt;window.addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(()=>{if(!modalOpen())render();},250);});}
+function initEvents(){if(inited)return;inited=true;$("addBtn").onclick=openAdd;$("fab").onclick=openAdd;$("logoutBtn").onclick=()=>{if(auth)signOut(auth);};$("togglePanel").onclick=()=>$("sidePanel").classList.toggle("open");$("spClose").onclick=()=>$("sidePanel").classList.remove("open");$("mCancel").onclick=closeModal;$("mSave").onclick=saveModal;$("mDelete").onclick=delTask;$("mDup").onclick=dupTask;$("vtGantt").onclick=()=>switchView("gantt");$("vtList").onclick=()=>switchView("list");$("overlay").onclick=e=>{if(e.target===$("overlay"))closeModal();};$("fHama").onclick=()=>{FILTER.hama=!FILTER.hama;$("fHama").classList.toggle("active",FILTER.hama);render();};$("hideDone").onclick=()=>{FILTER.hideDone=!FILTER.hideDone;$("hideDone").classList.toggle("active",FILTER.hideDone);render();};buildCatChips();buildAsgnChips();let rt;window.addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(()=>{if(!modalOpen())render();},250);});}
 </script>
 </body>
 </html>
